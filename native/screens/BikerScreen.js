@@ -1,26 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { getProfile, saveProfile } from '../utils/storage';
+import { getProfile, saveProfile, getRideDiary } from '../utils/storage';
+import { COLORS, globalStyles } from '../constants/theme';
 
 export default function BikerScreen() {
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
+  const [stats, setStats] = useState({ totalDist: 0, topSpeed: 0, totalRides: 0 });
 
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadData = async () => {
       const data = await getProfile();
       setProfile(data);
       setEditData(data);
+      
+      const diaryData = await getRideDiary();
+      let totalDist = 0;
+      let topSpeed = 0;
+      
+      diaryData.forEach(ride => {
+        const dist = parseFloat(ride.distance) || 0;
+        const speed = parseFloat(ride.topSpeed) || 0;
+        totalDist += dist;
+        if (speed > topSpeed) {
+          topSpeed = speed;
+        }
+      });
+      
+      setStats({
+        totalRides: diaryData.length,
+        totalDist: parseFloat(totalDist.toFixed(1)),
+        topSpeed: topSpeed
+      });
     };
-    loadProfile();
+    loadData();
   }, []);
 
   if (!profile) {
     return (
-      <View style={styles.container}>
-        <Text style={{ color: '#ffffff' }}>Loading...</Text>
+      <View style={globalStyles.container}>
+        <Text style={{ color: COLORS.text }}>Loading...</Text>
       </View>
     );
   }
@@ -52,8 +73,43 @@ export default function BikerScreen() {
     setEditData({ ...editData, [field]: value });
   };
 
+  const getDaysRemaining = (dateString) => {
+    if (!dateString) return null;
+    const parts = dateString.split('/');
+    if (parts.length !== 3) return null;
+    const expiry = new Date(parts[2], parts[1] - 1, parts[0]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = expiry - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const renderExpiryStatus = (dateString) => {
+    if (!dateString || dateString.trim() === '') return <Text style={styles.statusText}>--/--/----</Text>;
+    const days = getDaysRemaining(dateString);
+    if (days === null || isNaN(days)) return <Text style={styles.statusText}>{dateString}</Text>;
+
+    let color = COLORS.success; // success
+    let text = `Valido (${days}g)`;
+
+    if (days < 0) {
+      color = COLORS.danger; // danger
+      text = 'SCADUTO';
+    } else if (days <= 30) {
+      color = COLORS.primary; // warning
+      text = `In scadenza (${days}g)`;
+    }
+
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+        <Text style={{ color: COLORS.textMuted, fontSize: 16, marginRight: 8 }}>{dateString}</Text>
+        <Text style={{ color, fontSize: 14, fontWeight: 'bold' }}>{text}</Text>
+      </View>
+    );
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={globalStyles.container}>
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.editButton} onPress={handleEditToggle}>
           <Text style={styles.editButtonText}>{isEditing ? 'Save Profile' : 'Edit Profile'}</Text>
@@ -86,7 +142,7 @@ export default function BikerScreen() {
               value={editData.name} 
               onChangeText={(text) => handleChange('name', text)}
               placeholder="Name"
-              placeholderTextColor="#888"
+              placeholderTextColor={COLORS.textMuted}
             />
           ) : (
             <Text style={styles.name}>{profile.name}</Text>
@@ -103,7 +159,7 @@ export default function BikerScreen() {
             value={editData.bike} 
             onChangeText={(text) => handleChange('bike', text)}
             placeholder="Bike Model"
-            placeholderTextColor="#888"
+            placeholderTextColor={COLORS.textMuted}
           />
         ) : (
           <Text style={styles.mountText}>{profile.bike}</Text>
@@ -118,7 +174,7 @@ export default function BikerScreen() {
               onChangeText={(text) => handleChange('currentOdometer', text)}
               keyboardType="numeric"
               placeholder="0"
-              placeholderTextColor="#888"
+              placeholderTextColor={COLORS.textMuted}
             />
           ) : (
             <Text style={styles.statusText}>{profile.currentOdometer || '0'}</Text>
@@ -135,10 +191,10 @@ export default function BikerScreen() {
             value={editData.motExpiry} 
             onChangeText={(text) => handleChange('motExpiry', text)}
             placeholder="DD/MM/YYYY"
-            placeholderTextColor="#888"
+            placeholderTextColor={COLORS.textMuted}
           />
         ) : (
-          <Text style={styles.statusText}>{profile.motExpiry || '--/--/----'}</Text>
+          renderExpiryStatus(profile.motExpiry)
         )}
         
         <Text style={styles.statLabel}>Road Tax Expiry</Text>
@@ -148,10 +204,10 @@ export default function BikerScreen() {
             value={editData.taxExpiry} 
             onChangeText={(text) => handleChange('taxExpiry', text)}
             placeholder="DD/MM/YYYY"
-            placeholderTextColor="#888"
+            placeholderTextColor={COLORS.textMuted}
           />
         ) : (
-          <Text style={styles.statusText}>{profile.taxExpiry || '--/--/----'}</Text>
+          renderExpiryStatus(profile.taxExpiry)
         )}
 
         <Text style={styles.statLabel}>Insurance Expiry</Text>
@@ -161,10 +217,10 @@ export default function BikerScreen() {
             value={editData.insExpiry} 
             onChangeText={(text) => handleChange('insExpiry', text)}
             placeholder="DD/MM/YYYY"
-            placeholderTextColor="#888"
+            placeholderTextColor={COLORS.textMuted}
           />
         ) : (
-          <Text style={styles.statusText}>{profile.insExpiry || '--/--/----'}</Text>
+          renderExpiryStatus(profile.insExpiry)
         )}
       </View>
 
@@ -180,15 +236,15 @@ export default function BikerScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statBlock}>
             <Text style={styles.statLabelCenter}>Total Dist</Text>
-            <Text style={styles.statValue}>{profile.totalDist} mi</Text>
+            <Text style={styles.statValue}>{stats.totalDist} mi</Text>
           </View>
           <View style={styles.statBlock}>
             <Text style={styles.statLabelCenter}>Top Speed</Text>
-            <Text style={styles.statValue}>{profile.topSpeed} mph</Text>
+            <Text style={styles.statValue}>{stats.topSpeed} mph</Text>
           </View>
           <View style={styles.statBlock}>
             <Text style={styles.statLabelCenter}>Total Rides</Text>
-            <Text style={styles.statValue}>{profile.totalRides}</Text>
+            <Text style={styles.statValue}>{stats.totalRides}</Text>
           </View>
         </View>
       </View>
@@ -198,11 +254,6 @@ export default function BikerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-    padding: 20,
-  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -210,13 +261,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   editButton: {
-    backgroundColor: '#FF6B00',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   editButtonText: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -229,7 +280,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FF6B00',
+    backgroundColor: COLORS.primary,
     marginRight: 20,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -244,7 +295,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarText: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 32,
     fontWeight: 'bold',
   },
@@ -253,66 +304,66 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 28,
     fontWeight: 'bold',
   },
   inputName: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 28,
     fontWeight: 'bold',
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    borderBottomColor: COLORS.border,
     paddingVertical: 0,
     marginBottom: 2,
   },
   subText: {
-    color: '#e0e0e0',
+    color: COLORS.textMuted,
     fontSize: 16,
     marginTop: 4,
   },
   card: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: COLORS.border,
     borderLeftWidth: 4,
-    borderLeftColor: '#00E5FF',
+    borderLeftColor: COLORS.secondary,
   },
   cardTitle: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
   },
   mountText: {
-    color: '#00E5FF',
+    color: COLORS.secondary,
     fontSize: 22,
     fontWeight: '700',
   },
   inputMount: {
-    color: '#00E5FF',
+    color: COLORS.secondary,
     fontSize: 22,
     fontWeight: '700',
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    borderBottomColor: COLORS.border,
     paddingVertical: 4,
   },
   odometerContainer: {
     marginTop: 15,
   },
   inputSmall: {
-    color: '#e0e0e0',
+    color: COLORS.textMuted,
     fontSize: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    borderBottomColor: COLORS.border,
     paddingVertical: 4,
     marginBottom: 6,
   },
   statusText: {
-    color: '#e0e0e0',
+    color: COLORS.textMuted,
     fontSize: 16,
     marginBottom: 6,
   },
@@ -326,18 +377,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statLabel: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 12,
     marginBottom: 4,
   },
   statLabelCenter: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 12,
     marginBottom: 4,
     textAlign: 'center',
   },
   statValue: {
-    color: '#00E5FF',
+    color: COLORS.secondary,
     fontSize: 18,
     fontWeight: 'bold',
   },

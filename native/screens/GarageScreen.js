@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Keyboard, TouchableWithoutFeedback, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { getProfile, getGarageLog, saveGarageLog } from '../utils/storage';
+import { getProfile, saveProfile, getGarageLog, saveGarageLog } from '../utils/storage';
+import { COLORS, globalStyles } from '../constants/theme';
 
 export default function GarageScreen() {
   const [profile, setProfile] = useState(null);
@@ -14,6 +15,7 @@ export default function GarageScreen() {
     const loadData = async () => {
       const p = await getProfile();
       setProfile(p);
+      setMileage(p.currentOdometer || '');
       const log = await getGarageLog();
       setGarageLog(log);
     };
@@ -24,6 +26,7 @@ export default function GarageScreen() {
     if (serviceType.trim() === '' || mileage.trim() === '') return;
     
     let newLog = [...garageLog];
+    let latestOdometer = profile.currentOdometer || '';
     
     if (editingIndex !== null) {
       newLog[editingIndex] = {
@@ -39,20 +42,30 @@ export default function GarageScreen() {
         date: new Date().toLocaleDateString()
       };
       newLog = [newRecord, ...garageLog];
+      
+      const insertedMileage = parseFloat(mileage);
+      const currentOdo = parseFloat(profile.currentOdometer || '0');
+      
+      if (!isNaN(insertedMileage) && insertedMileage > currentOdo) {
+        latestOdometer = mileage;
+        const updatedProfile = { ...profile, currentOdometer: mileage };
+        setProfile(updatedProfile);
+        await saveProfile(updatedProfile);
+      }
     }
 
     setGarageLog(newLog);
     await saveGarageLog(newLog);
     
     setServiceType('Washing Bike');
-    setMileage('');
+    setMileage(latestOdometer);
     setEditingIndex(null);
     Keyboard.dismiss();
   };
 
   const handleCancelEdit = () => {
     setServiceType('Washing Bike');
-    setMileage('');
+    setMileage(profile.currentOdometer || '');
     setEditingIndex(null);
     Keyboard.dismiss();
   };
@@ -79,14 +92,14 @@ export default function GarageScreen() {
 
   if (!profile) {
     return (
-      <View style={styles.container}>
-        <Text style={{ color: '#ffffff' }}>Loading...</Text>
+      <View style={globalStyles.container}>
+        <Text style={{ color: COLORS.text }}>Loading...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={globalStyles.container}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View>
           <View style={styles.header}>
@@ -102,8 +115,8 @@ export default function GarageScreen() {
                 selectedValue={serviceType}
                 onValueChange={(itemValue) => setServiceType(itemValue)}
                 style={styles.picker}
-                itemStyle={{ color: '#FFFFFF', height: Platform.OS === 'ios' ? 120 : undefined }}
-                dropdownIconColor="#ffffff"
+                itemStyle={{ color: COLORS.text, height: Platform.OS === 'ios' ? 120 : undefined }}
+                dropdownIconColor={COLORS.text}
               >
                 <Picker.Item label="Washing Bike" value="Washing Bike" />
                 <Picker.Item label="Chain Service" value="Chain Service" />
@@ -118,7 +131,7 @@ export default function GarageScreen() {
             <TextInput
               style={styles.input}
               placeholder="Mileage done at"
-              placeholderTextColor="#888"
+              placeholderTextColor={COLORS.textMuted}
               keyboardType="numeric"
               returnKeyType="done"
               value={mileage}
@@ -172,62 +185,61 @@ export default function GarageScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-    padding: 20,
-  },
   header: {
     marginBottom: 20,
     marginTop: 10,
     alignItems: 'center',
   },
   title: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
   },
   odometerText: {
-    color: '#00E5FF',
+    color: COLORS.secondary,
     fontSize: 32,
     fontWeight: '700',
   },
   card: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: COLORS.border,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF6B00',
+    borderLeftColor: COLORS.primary,
   },
   cardTitle: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
   },
   pickerContainer: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: COLORS.background,
     borderRadius: 8,
     marginBottom: 10,
     overflow: 'hidden',
     justifyContent: 'center',
     height: Platform.OS === 'ios' ? 120 : 'auto',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   picker: {
-    color: '#ffffff',
+    color: COLORS.text,
     backgroundColor: 'transparent',
   },
   input: {
-    backgroundColor: '#2a2a2a',
-    color: '#ffffff',
+    backgroundColor: COLORS.background,
+    color: COLORS.text,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   actionButtonsRow: {
     flexDirection: 'row',
@@ -235,26 +247,26 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   saveButton: {
-    backgroundColor: '#FF6B00',
+    backgroundColor: COLORS.primary,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 5,
   },
   cancelButton: {
-    backgroundColor: '#555555',
+    backgroundColor: COLORS.border,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 5,
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontWeight: 'bold',
     fontSize: 16,
   },
   sectionTitle: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
@@ -264,7 +276,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   historyCard: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: 15,
     marginBottom: 10,
@@ -272,24 +284,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderLeftWidth: 3,
-    borderLeftColor: '#00E5FF',
+    borderLeftColor: COLORS.secondary,
   },
   historyInfo: {
     flex: 1,
   },
   historyType: {
-    color: '#ffffff',
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: 'bold',
   },
   historyDate: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 4,
     marginBottom: 4,
   },
   historyMileage: {
-    color: '#00E5FF',
+    color: COLORS.secondary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -301,18 +313,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   editActionText: {
-    color: '#00E5FF',
+    color: COLORS.secondary,
     fontWeight: 'bold',
     fontSize: 14,
     marginBottom: 8,
   },
   deleteActionText: {
-    color: '#FF4444',
+    color: COLORS.danger,
     fontWeight: 'bold',
     fontSize: 14,
   },
   noHistoryText: {
-    color: '#888888',
+    color: COLORS.textMuted,
     textAlign: 'center',
     marginTop: 20,
   }

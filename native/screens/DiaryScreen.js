@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Keyboard, TouchableWithoutFeedback, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { getRideDiary, saveRideDiary } from '../utils/storage';
 import { COLORS, globalStyles } from '../constants/theme';
 
@@ -10,6 +11,7 @@ export default function DiaryScreen() {
   const [distance, setDistance] = useState('');
   const [topSpeed, setTopSpeed] = useState('');
   const [notes, setNotes] = useState('');
+  const [imageUris, setImageUris] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
 
   useEffect(() => {
@@ -20,28 +22,50 @@ export default function DiaryScreen() {
     loadDiary();
   }, []);
 
+  const pickImages = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      const newUris = result.assets.map(asset => asset.uri);
+      setImageUris([...imageUris, ...newUris]);
+    }
+  };
+
+  const removeImage = (indexToRemove) => {
+    setImageUris(imageUris.filter((_, index) => index !== indexToRemove));
+  };
+
   const handleSave = async () => {
     if (title.trim() === '') return;
     
     let newDiary = [...diary];
     
+    const formattedDistance = distance ? parseFloat(distance.replace(',', '.')) : 0;
+    const formattedTopSpeed = topSpeed ? parseFloat(topSpeed.replace(',', '.')) : 0;
+    
     if (editingIndex !== null) {
       newDiary[editingIndex] = {
         ...newDiary[editingIndex],
         title,
-        distance,
-        topSpeed,
-        notes
+        distance: formattedDistance.toString(),
+        topSpeed: formattedTopSpeed.toString(),
+        notes,
+        imageUris
       };
     } else {
       const newRide = {
         id: Date.now().toString(),
         title,
-        distance,
-        topSpeed,
+        distance: formattedDistance.toString(),
+        topSpeed: formattedTopSpeed.toString(),
         notes,
         date: new Date().toLocaleDateString(),
-        type: 'Manual'
+        type: 'Manual',
+        imageUris
       };
       newDiary = [newRide, ...diary];
     }
@@ -53,6 +77,7 @@ export default function DiaryScreen() {
     setDistance('');
     setTopSpeed('');
     setNotes('');
+    setImageUris([]);
     setEditingIndex(null);
     setShowForm(false);
     Keyboard.dismiss();
@@ -63,6 +88,7 @@ export default function DiaryScreen() {
     setDistance('');
     setTopSpeed('');
     setNotes('');
+    setImageUris([]);
     setEditingIndex(null);
     setShowForm(false);
     Keyboard.dismiss();
@@ -74,6 +100,7 @@ export default function DiaryScreen() {
     setDistance(ride.distance || '');
     setTopSpeed(ride.topSpeed || '');
     setNotes(ride.notes || '');
+    setImageUris(ride.imageUris || []);
     setEditingIndex(index);
     setShowForm(true);
   };
@@ -144,6 +171,23 @@ export default function DiaryScreen() {
               value={notes}
               onChangeText={setNotes}
             />
+
+            <TouchableOpacity style={styles.imagePickerButton} onPress={pickImages}>
+              <Text style={styles.imagePickerButtonText}>📸 Add Photos</Text>
+            </TouchableOpacity>
+
+            {imageUris.length > 0 && (
+              <ScrollView horizontal style={styles.thumbnailsContainer}>
+                {imageUris.map((uri, index) => (
+                  <View key={index} style={styles.thumbnailWrapper}>
+                    <Image source={{ uri }} style={styles.thumbnail} />
+                    <TouchableOpacity style={styles.removeImageButton} onPress={() => removeImage(index)}>
+                      <Text style={styles.removeImageText}>X</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
             
             <View style={styles.actionButtonsRow}>
               <TouchableOpacity style={[styles.saveButton, { flex: 1, marginRight: 10 }]} onPress={handleSave}>
@@ -171,6 +215,14 @@ export default function DiaryScreen() {
               </View>
               
               <Text style={styles.rideDate}>{ride.date}</Text>
+
+              {ride.imageUris && ride.imageUris.length > 0 && (
+                <ScrollView horizontal style={styles.galleryContainer} showsHorizontalScrollIndicator={false}>
+                  {ride.imageUris.map((uri, imgIndex) => (
+                    <Image key={imgIndex} source={{ uri }} style={styles.galleryImage} />
+                  ))}
+                </ScrollView>
+              )}
               
               <View style={styles.statsRow}>
                 {ride.distance ? <Text style={styles.rideStat}>Distance: {ride.distance} mi</Text> : null}
@@ -253,6 +305,46 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
+  imagePickerButton: {
+    backgroundColor: COLORS.border,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  imagePickerButtonText: {
+    color: COLORS.text,
+    fontWeight: 'bold',
+  },
+  thumbnailsContainer: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  thumbnailWrapper: {
+    position: 'relative',
+    marginRight: 10,
+  },
+  thumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: COLORS.danger,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeImageText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   actionButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -321,6 +413,17 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginBottom: 8,
+  },
+  galleryContainer: {
+    flexDirection: 'row',
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  galleryImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    marginRight: 10,
   },
   statsRow: {
     flexDirection: 'row',
