@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MOTORIDE v0.8.5</title>
+  
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #121316; --surface: #1C1D22; --surface-2: #25272E;
+      --border: #32353E; --text: #ECEAE4; --muted: #8E929F;
+      --accent: #F5A623; --warning: #FF9F43; --danger: #E5533D; --success: #34D1B7;
+      --waze: #33ccff; --gmaps: #34a853;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; padding-bottom: 110px; }
+    header { padding: 1.5rem 1rem 0.8rem; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: baseline;}
+    .app-title { font-family: 'Oswald', sans-serif; font-size: 1.8rem; color: var(--accent); margin: 0; text-transform: uppercase; }
+    main { padding: 1rem; max-width: 600px; margin: 0 auto; }
+    .tab-content { display: none; } .tab-content.active { display: block; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.2rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    label { display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.4rem; }
+    
+    /* GLOVE-FRIENDLY INPUTS */
+    input, select, textarea { width: 100%; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 1.1rem; font-size: 1.1rem; font-family: inherit; margin-bottom: 1rem; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); }
+    
+    /* GLOVE-FRIENDLY BUTTONS */
+    .btn { width: 100%; background: var(--accent); color: #121316; border: none; border-radius: 10px; padding: 1.1rem; font-family: 'Oswald', sans-serif; font-size: 1.2rem; text-transform: uppercase; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn:active { transform: scale(0.98); }
+    .btn-secondary { background: transparent; color: var(--text); border: 2px solid var(--border); }
+    .btn-edit { background: var(--surface-2); color: var(--text); border: 2px solid var(--muted); padding: 0.8rem; font-size: 1rem; }
+    .btn-waze { background: transparent; color: var(--waze); border: 2px solid var(--waze); font-size: 1rem; padding: 0.9rem;}
+    .btn-gmaps { background: transparent; color: var(--gmaps); border: 2px solid var(--gmaps); font-size: 1rem; padding: 0.9rem;}
+    
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
+    .stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.8rem 1rem; text-align: center; }
+    .stat-tile label { margin-bottom: 0.5rem; font-size: 0.8rem; }
+    .stat-val { font-family: 'Share Tech Mono', monospace; font-size: 2.5rem; color: var(--accent); margin-top: 0.2rem; line-height: 1; }
+    
+    .ride-card { position: relative; border-left: 5px solid var(--border); transition: 0.3s; padding: 1.5rem; }
+    .ride-card.favorite { border-left-color: var(--accent); background: rgba(245, 166, 35, 0.04); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .star-btn { position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.8rem; color: var(--border); cursor: pointer; transition: 0.2s; padding: 0.5rem; }
+    .star-btn.active { color: var(--accent); text-shadow: 0 0 10px rgba(245, 166, 35, 0.5); }
+
+    .hub-card { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.2rem; border-left: 5px solid var(--teal); }
+    .hub-badge { position: absolute; top: 1.2rem; right: -2.5rem; background: var(--accent); color: #000; font-family: 'Oswald'; font-size: 0.8rem; padding: 0.3rem 3rem; transform: rotate(45deg); font-weight: bold;}
+    
+    /* GLOVE-FRIENDLY NAV BAR */
+    .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 2px solid var(--border); display: flex; justify-content: space-around; padding: 0.8rem 0; z-index: 100; }
+    .nav-item { background: none; border: none; color: var(--muted); display: flex; flex-direction: column; align-items: center; font-size: 0.75rem; font-family: 'Oswald', sans-serif; text-transform: uppercase; cursor: pointer; gap: 0.4rem; flex: 1; padding: 0.5rem;}
+    .nav-item.active { color: var(--accent); }
+    .nav-icon { font-size: 1.8rem; }
+    
+    .profile-img-container { position: relative; width: 140px; height: 140px; margin: 0 auto 1.8rem; }
+    .profile-img { width: 100%; height: 100%; border-radius: 28px; object-fit: cover; border: 2px solid var(--border); background: var(--surface-2); }
+    .profile-plus-btn { position: absolute; bottom: -5px; right: -5px; width: 45px; height: 45px; border-radius: 50%; background: var(--accent); color: #121316; border: 4px solid var(--surface); font-size: 1.8rem; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; }
+    
+    .img-preview { width: 100%; max-height: 350px; object-fit: cover; border-radius: 10px; margin-top: 0.8rem; margin-bottom: 1rem; background: var(--surface-2); cursor: pointer; }
+    
+    /* BIGGER GPS BTN */
+    .gps-loc-btn { position: absolute; right: 8px; top: 32px; background: var(--accent); border: none; border-radius: 8px; padding: 0.8rem; font-size: 1.2rem; color: #000; cursor: pointer; }
+
+    .doc-tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+    .doc-tile input { width: auto; margin-bottom: 0; padding: 0.6rem; font-size: 1rem; border: none; background: var(--surface); color: var(--text); }
+    .doc-status { font-family: 'Share Tech Mono', monospace; font-size: 0.9rem; }
+    .status-ok { color: var(--success); } .status-warn { color: var(--warning); } .status-danger { color: var(--danger); }
+
+    .gps-panel { background: #000; border: 3px solid var(--accent); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.8rem; text-align: center; }
+    .gps-speed { font-family: 'Share Tech Mono', monospace; font-size: 5rem; color: var(--success); line-height: 1; text-shadow: 0 0 15px rgba(52, 209, 183, 0.4); }
+    .gps-stats { display: flex; justify-content: space-around; margin-top: 1.2rem; border-top: 2px solid #333; padding-top: 1rem; }
+    .gps-stat-box label { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.3rem; }
+    .gps-stat-box div { font-family: 'Share Tech Mono', monospace; font-size: 1.5rem; color: var(--text); }
+    .btn-start-gps { background: var(--success); color: #000; margin-top: 1.5rem; padding: 1.2rem; font-size: 1.3rem; }
+    .btn-stop-gps { background: var(--danger); color: #fff; margin-top: 1.5rem; padding: 1.2rem; font-size: 1.3rem; display: none; }
+    .pulse-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--danger); margin-right: 8px; animation: pulse 1s infinite; display: none; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+    #lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; flex-direction: column; }
+    #lightbox img { max-width: 100%; max-height: 80%; border-radius: 10px; }
+    #lightbox-close { margin-top: 20px; background: var(--accent); padding: 15px 40px; border-radius: 10px; font-weight: bold; color: black; font-size: 1.2rem; border: none; cursor: pointer; }
+
+    .file-input-wrapper { position: relative; width: 100%; height: 60px; margin-bottom: 1rem; }
+    .file-input-wrapper button { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; font-size: 1.1rem; }
+    .file-input-wrapper input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 class="app-title">MOTORIDE</h1>
+    <span style="font-size:0.9rem; color:var(--muted); font-family:'Share Tech Mono'">v0.8.5 Alpha</span>
+  </header>
+
+  <main>
+    <!-- 1. STATS TAB -->
+    <section id="tab-stats" class="tab-content active">
+      
+      <!-- FUEL WIDGET -->
+      <div class="card" style="border-left: 5px solid var(--success); margin-bottom: 1.2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <h3 style="margin:0 0 1rem; font-family:'Oswald'; color:var(--text); text-transform:uppercase; font-size: 1.4rem;">Fuel Level</h3>
+          <span id="fuel-range" style="font-size:1rem; color:var(--success); font-family:'Share Tech Mono'">Range: -- mi</span>
+        </div>
+        
+        <div style="background: var(--surface-2); border-radius: 10px; height: 30px; width: 100%; position: relative; margin-bottom: 1.2rem; overflow: hidden; border: 2px solid var(--border);">
+           <div id="fuel-bar" style="background: var(--success); height: 100%; width: 100%; transition: width 0.5s;"></div>
+           <div id="fuel-text" style="position: absolute; top:0; left:0; width:100%; text-align:center; line-height:30px; font-size:1rem; font-weight:bold; color:#121316; font-family:'Share Tech Mono', monospace; text-shadow: 0px 0px 4px rgba(255,255,255,0.8);">-- / -- L</div>
+        </div>
+        
+        <div class="grid-2">
+          <button type="button" class="btn btn-secondary" onclick="addCustomFuel()">➕ Add Liters</button>
+          <button type="button" class="btn btn-secondary" onclick="fillTankUp()" style="border-color:var(--success); color:var(--success)">⛽ Fill Up</button>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-tile"><label>Total Rides</label><div id="stat-total-rides" class="stat-val">0</div></div>
+        <div class="stat-tile"><label>Total Distance</label><div id="stat-total-miles" class="stat-val">0<span style="font-size:1.2rem; color:var(--muted)">mi</span></div></div>
+        <div class="stat-tile"><label>Top Speed</label><div id="stat-top-speed" class="stat-val">0<span style="font-size:1.2rem; color:var(--muted)">mph</span></div></div>
+        <div class="stat-tile"><label>Longest Ride</label><div id="stat-longest-ride" class="stat-val">0<span style="font-size:1.2rem; color:var(--muted)">mi</span></div></div>
+      </div>
+      
+      <div class="card" style="padding-top: 1.2rem; overflow: hidden;" id="recent-highlight-container">
+        <label style="margin-bottom:1rem;">Recent Highlight</label>
+        <div id="stats-summary" style="color:var(--muted); font-size:1rem; text-align:center;">Log your first ride to see updates!</div>
+      </div>
+    </section>
+
+    <!-- 2. SCENIC ROUTES & SMART HUB TAB -->
+    <section id="tab-hub" class="tab-content">
+      <div style="margin-bottom: 1.2rem;">
+        <h2 style="font-family:'Oswald'; color:var(--accent); margin:0 0 0.4rem; text-transform:uppercase; font-size:1.8rem;">Scenic Rides & Bike Nights</h2>
+        <p style="font-size:1rem; color:var(--muted); margin:0;">Smart sorted based on today's events.</p>
+      </div>
+      <div id="hub-list-container"></div>
+    </section>
+
+    <!-- 3. DIARY TAB -->
+    <section id="tab-diary" class="tab-content"><div id="diary-list"></div></section>
+
+    <!-- 4. LOG RIDE TAB -->
+    <section id="tab-log" class="tab-content">
+      
+      <div class="gps-panel">
+        <div style="font-family:'Oswald'; color:var(--muted); margin-bottom:0.8rem; font-size:1rem;">
+          <span id="gps-indicator" class="pulse-dot"></span><span id="gps-status-text">LIVE TELEMETRY READY</span>
+        </div>
+        <div class="gps-speed" id="gps-current-speed">0</div>
+        <div style="color:var(--success); font-size:1rem; margin-top:0.4rem; font-family:'Oswald'">MPH</div>
+        <div class="gps-stats">
+          <div class="gps-stat-box"><label>DISTANCE (MI)</label><div id="gps-distance">0.0</div></div>
+          <div class="gps-stat-box"><label>TOP SPEED (MPH)</label><div id="gps-top-speed">0</div></div>
+        </div>
+        <button type="button" id="btn-start-gps" class="btn btn-start-gps" onclick="startGPS()">START RIDE RECORDING</button>
+        <button type="button" id="btn-stop-gps" class="btn btn-stop-gps" onclick="stopGPS()">STOP & SAVE DATA</button>
+      </div>
+
+      <form id="ride-form" class="card">
+        <input type="hidden" id="edit-ride-id">
+        <label>Date</label> <input type="date" id="ride-date" required>
+        <div class="grid-2">
+          <div style="position:relative">
+             <label>Start Location</label>
+             <input type="text" id="ride-start-loc" placeholder="e.g. Reading" style="padding-right: 50px;">
+             <button type="button" class="gps-loc-btn" onclick="fetchGPSLocation()" title="Use GPS Location">📍</button>
+          </div>
+          <div><label>End Location</label><input type="text" id="ride-end-loc" placeholder="e.g. Wee Waif"></div>
+        </div>
+        <div class="grid-2">
+          <div><label>Odometer Start</label><input type="number" step="0.1" id="ride-odo-start" required></div>
+          <div><label>Odometer End</label><input type="number" step="0.1" id="ride-odo-end" required></div>
+        </div>
+        
+        <label>Top Speed (mph)</label><input type="number" id="ride-top-speed">
+        <label>Notes & Route Experience</label><textarea id="ride-notes" rows="3"></textarea>
+        
+        <label>Add Memory (1 Photo Max)</label>
+        <div class="file-input-wrapper">
+           <button type="button" class="btn btn-secondary">📷 Choose Photo</button>
+           <input type="file" id="ride-photo-input" accept="image/*">
+        </div>
+        <img id="ride-photo-preview" class="img-preview" style="display:none" onclick="openLightbox(this.src)">
+
+        <button type="submit" class="btn" style="margin-top:1.2rem" id="save-ride-btn">Save Ride Log</button>
+        <button type="button" class="btn btn-secondary" style="margin-top:0.8rem; display:none; border-color:var(--danger); color:var(--danger)" id="cancel-edit-btn" onclick="cancelEdit()">Cancel Edit</button>
+      </form>
+    </section>
+
+    <!-- 5. MAINTENANCE TAB -->
+    <section id="tab-maint" class="tab-content">
+      <form id="maint-form" class="card" style="border-left: 5px solid var(--danger);">
+        <h3 style="margin:0 0 1.2rem; font-family:'Oswald'; color:var(--text); text-transform:uppercase; font-size:1.4rem;">Log Service</h3>
+        <label>Service Type</label>
+        <select id="maint-type" required>
+          <option value="Chain Lube">Chain Lube</option>
+          <option value="Chain Tension">Chain Tensioning</option>
+          <option value="Tire Pressure">Tire Pressure Check</option>
+          <option value="Oil Change">Engine Oil Change</option>
+          <option value="Brake Check">Brake Pads/Fluid</option>
+          <option value="General Service">General Service / Garage</option>
+          <option value="Other">Other</option>
+        </select>
+        <div class="grid-2">
+          <div><label>Date</label><input type="date" id="maint-date" required></div>
+          <div><label>Odometer (mi)</label><input type="number" step="0.1" id="maint-odo" required></div>
+        </div>
+        <label>Notes / Cost (£)</label>
+        <textarea id="maint-notes" rows="2" placeholder="e.g. Muc-Off Dry Lube applied"></textarea>
+        <button type="submit" class="btn" style="background:var(--danger); color:#fff; margin-top:0.5rem;">Save Maintenance</button>
+      </form>
+      <h3 style="font-family:'Oswald'; margin-bottom: 0.8rem; color:var(--muted); text-transform:uppercase; font-size:1.2rem;">Service History</h3>
+      <div id="maint-list"></div>
+    </section>
+
+    <!-- 6. RIDER TAB -->
+    <section id="tab-rider" class="tab-content">
+      <div class="card">
+        <div class="profile-img-container">
+          <img id="rider-photo-preview" class="profile-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238E929F'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>">
+          <div class="profile-plus-btn">+</div>
+          <input type="file" id="rider-photo-input" accept="image/*" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+        </div>
+        <label>Rider Name</label><input type="text" id="rider-name">
+        <label>Home Base / Start Location</label><input type="password" id="rider-base-address" placeholder="e.g. 10 Downing St" style="margin-bottom: 2rem;">
+        
+        <h3 style="margin:0 0 1rem; font-family:'Oswald'; color:var(--accent); text-transform:uppercase; font-size:1.4rem;">Motorcycle Details</h3>
+        <label>Make</label>
+        <select id="bike-make" onchange="toggleCustomMake()">
+          <option value="Lexmoto">Lexmoto</option>
+          <option value="Honda">Honda</option>
+          <option value="Yamaha">Yamaha</option>
+          <option value="Other">Other (Type below)</option>
+        </select>
+        <input type="text" id="bike-make-custom" style="display:none;">
+        <div class="grid-2">
+          <div><label>Model</label><input type="text" id="bike-model"></div>
+          <div><label>Year</label><input type="number" id="bike-year"></div>
+        </div>
+        <label>Current Odometer (mi)</label><input type="number" step="0.1" id="bike-odo" style="margin-bottom: 2rem;">
+
+        <h3 style="margin:0 0 1rem; font-family:'Oswald'; color:var(--success); text-transform:uppercase; font-size:1.4rem;">Fuel Specs</h3>
+        <div class="grid-2">
+          <div><label>Avg MPG (UK)</label><input type="number" id="bike-mpg"></div>
+          <div><label>Tank Size (Liters)</label><input type="number" id="bike-tank"></div>
+        </div>
+      </div>
+
+      <div class="card" style="border-left: 5px solid var(--teal);">
+        <h3 style="margin:0 0 1.2rem; font-family:'Oswald'; color:var(--text); text-transform:uppercase; font-size:1.4rem;">Legal & Docs</h3>
+        <div class="doc-tile"><div><label style="margin:0; color:var(--text)">MOT Expiry</label><div id="status-mot" class="doc-status status-ok">-</div></div><input type="date" id="doc-mot"></div>
+        <div class="doc-tile"><div><label style="margin:0; color:var(--text)">Insurance</label><div id="status-ins" class="doc-status status-ok">-</div></div><input type="date" id="doc-ins"></div>
+        <div class="doc-tile"><div><label style="margin:0; color:var(--text)">Road Tax</label><div id="status-tax" class="doc-status status-ok">-</div></div><input type="date" id="doc-tax"></div>
+      </div>
+      <button id="save-profile-btn" class="btn" style="margin-bottom:1.5rem;">Save Settings</button>
+    </section>
+  </main>
+
+  <div id="lightbox"><img id="lightbox-img" src=""><button id="lightbox-close" onclick="closeLightbox()">CLOSE</button></div>
+
+  <!-- MENU INFERIORE INGRANDITO -->
+  <nav class="nav-bar">
+    <button class="nav-item active" onclick="switchTab('stats')"><span class="nav-icon">📊</span><span>Stats</span></button>
+    <button class="nav-item" onclick="switchTab('hub')"><span class="nav-icon">📍</span><span>Hub</span></button>
+    <button class="nav-item" onclick="switchTab('diary')"><span class="nav-icon">📖</span><span>Diary</span></button>
+    <button class="nav-item" onclick="switchTab('log')"><span class="nav-icon">➕</span><span>Log</span></button>
+    <button class="nav-item" onclick="switchTab('maint')"><span class="nav-icon">🔧</span><span>Maint</span></button>
+    <button class="nav-item" onclick="switchTab('rider')"><span class="nav-icon">🏍️</span><span>Rider</span></button>
+  </nav>
+
+  <script>
+    let rides = JSON.parse(localStorage.getItem('mr_rides') || '[]');
+    let maintLogs = JSON.parse(localStorage.getItem('mr_maint') || '[]');
+    let defaultProfile = { 
+        name: "", photo: "", baseAddress: "", bikeMake: "Lexmoto", bikeMakeCustom: "", bikeModel: "", bikeYear: "", 
+        odo: 2031, mpg: 100, tank: 13, currentFuel: 13, docMot: "", docIns: "", docTax: "" 
+    };
+    let profile = JSON.parse(localStorage.getItem('mr_profile')) || defaultProfile;
+    
+    if (profile.currentFuel === undefined) { profile.currentFuel = profile.tank || 13; }
+    
+    let tempRidePhoto = '';
+
+    function todayISO() { return new Date().toISOString().slice(0, 10); }
+    document.getElementById('ride-date').value = todayISO();
+    document.getElementById('maint-date').value = todayISO();
+
+    function compressImage(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image(); img.onload = () => {
+            const canvas = document.createElement('canvas'); 
+            const maxPx = 600; let w = img.width, h = img.height;
+            if (w > h && w > maxPx) { h = Math.round((h * maxPx) / w); w = maxPx; } else if (h > maxPx) { w = Math.round((w * maxPx) / h); h = maxPx; }
+            canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); 
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+          }; img.src = e.target.result;
+        }; reader.readAsDataURL(file);
+      });
+    }
+
+    function openLightbox(src) { document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').style.display = 'flex'; }
+    function closeLightbox() { document.getElementById('lightbox').style.display = 'none'; }
+    function openNavApp(app, destination) {
+      const destUrl = encodeURIComponent(destination);
+      if (app === 'waze') window.open(`https://waze.com/ul?q=${destUrl}&navigate=yes`, '_blank');
+      else if (app === 'gmaps') window.open(`https://www.google.com/maps/dir/?api=1&destination=${destUrl}`, '_blank');
+    }
+
+    function updateFuelWidget() {
+      const tank = profile.tank || 13;
+      const mpg = profile.mpg || 100;
+      let current = profile.currentFuel;
+      
+      if (current > tank) current = tank;
+      if (current < 0) current = 0;
+      
+      const pct = (current / tank) * 100;
+      const range = (current / 4.54609) * mpg;
+      
+      const bar = document.getElementById('fuel-bar');
+      bar.style.width = `${pct}%`;
+      
+      if (pct <= 20) { bar.style.background = 'var(--danger)'; document.getElementById('fuel-range').style.color = 'var(--danger)'; } 
+      else if (pct <= 40) { bar.style.background = 'var(--warning)'; document.getElementById('fuel-range').style.color = 'var(--warning)'; } 
+      else { bar.style.background = 'var(--success)'; document.getElementById('fuel-range').style.color = 'var(--success)'; }
+      
+      document.getElementById('fuel-text').innerText = `${current.toFixed(1)} L / ${tank} L`;
+      document.getElementById('fuel-range').innerText = `Range: ~${range.toFixed(0)} mi`;
+    }
+
+    function addCustomFuel() {
+      const liters = prompt("How many liters did you put in?", "5");
+      if (liters !== null && !isNaN(liters) && Number(liters) > 0) {
+        profile.currentFuel = Math.min((profile.tank || 13), (profile.currentFuel || 0) + Number(liters));
+        localStorage.setItem('mr_profile', JSON.stringify(profile));
+        updateFuelWidget();
+        alert(`Added ${liters} Liters to the virtual tank!`);
+      }
+    }
+
+    function fillTankUp() {
+      if (confirm("Record a full tank refill?")) {
+        profile.currentFuel = profile.tank || 13;
+        localStorage.setItem('mr_profile', JSON.stringify(profile));
+        updateFuelWidget();
+      }
+    }
+
+    const hubRoutes = [
+      { id: 'queens', title: "The Queen's Head", desc: "Bradfield (RG7 6EY) • ~8 Miles", info: "Relaxed evening ride through country lanes.", waze: "The Queen's Head, Bradfield, RG7 6EY", gmaps: "The Queen's Head, Bradfield, RG7 6EY", dist: 8.5, days: [] },
+      { id: 'pinewood', title: "Pinewood Cafe", desc: "Wokingham • Bike Nights: Tue & Fri", info: "", waze: "Pinewood Cafe, Wokingham", gmaps: "Pinewood Cafe, Wokingham", dist: 12.0, days: [2, 5] },
+      { id: 'rykas', title: "Ryka's Cafe (Box Hill)", desc: "Dorking • Bike Night: Wednesday", info: "", waze: "Ryka's Cafe, Box Hill", gmaps: "Ryka's Cafe, Box Hill", dist: 38.0, days: [3] },
+      { id: 'hcafe', title: "H Cafe Run", desc: "Berinsfield • Bike Night: Monday", info: "", waze: "H Cafe, Berinsfield", gmaps: "H Cafe, Berinsfield", dist: 18.5, days: [1] }
+    ];
+
+    function renderHub() {
+      const today = new Date().getDay();
+      const sortedRoutes = [...hubRoutes].sort((a, b) => {
+        const aToday = a.days.includes(today) ? 1 : 0;
+        const bToday = b.days.includes(today) ? 1 : 0;
+        return bToday - aToday;
+      });
+
+      const container = document.getElementById('hub-list-container');
+      container.innerHTML = sortedRoutes.map(r => {
+        const isToday = r.days.includes(today);
+        const badgeHTML = isToday ? `<div class="hub-badge" style="background: var(--danger); color:#fff;">🔥 TONIGHT</div>` : (r.days.length === 0 ? `<div class="hub-badge" style="background: var(--warning);">LOCAL</div>` : '');
+        const borderStyle = isToday ? `border-left-color: var(--danger);` : `border-left-color: var(--teal);`;
+
+        return `
+        <div class="hub-card" style="${borderStyle}">
+          ${badgeHTML}
+          <h3 style="margin:0 0 0.5rem; font-family:'Oswald'; font-size:1.4rem;">${r.title}</h3>
+          <div style="font-size:1rem; color:var(--muted); margin-bottom:1rem;">${r.desc}</div>
+          <div class="grid-2">
+              <button class="btn btn-waze" onclick="openNavApp('waze', '${r.waze}')">Waze</button>
+              <button class="btn btn-gmaps" onclick="openNavApp('gmaps', '${r.gmaps}')">G-Maps</button>
+          </div>
+          <button class="btn btn-secondary" style="margin-top:1rem; font-size:1rem; padding:0.9rem;" onclick="quickLogRoute('${r.title}', ${r.dist})">📝 Quick Log (${r.dist} mi)</button>
+        </div>`;
+      }).join('');
+    }
+
+    function updateStartLocationField() {
+       if (rides.length > 0) {
+           const lastRide = [...rides].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+           document.getElementById('ride-start-loc').value = lastRide.endLoc;
+       } else { document.getElementById('ride-start-loc').value = profile.baseAddress || 'Home Base'; }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+      event.currentTarget.classList.add('active');
+      if (tabId === 'stats') { updateStats(); updateFuelWidget(); }
+      if (tabId === 'diary') renderDiary();
+      if (tabId === 'rider') loadProfileUI();
+      if (tabId === 'hub') renderHub();
+      if (tabId === 'maint') { document.getElementById('maint-odo').value = profile.odo || 0; renderMaint(); }
+      if (tabId === 'log' && !document.getElementById('edit-ride-id').value) updateStartLocationField();
+    }
+
+    function quickLogRoute(end, distanceMi) {
+      const currentOdo = profile.odo || 0;
+      document.querySelectorAll('.nav-item')[3].click();
+      updateStartLocationField(); 
+      document.getElementById('ride-end-loc').value = end;
+      document.getElementById('ride-odo-start').value = currentOdo;
+      document.getElementById('ride-odo-end').value = (currentOdo + distanceMi).toFixed(1);
+    }
+
+    function fetchGPSLocation() {
+        const btn = document.querySelector('.gps-loc-btn');
+        btn.innerText = "⏳";
+        if (!navigator.geolocation) { alert("GPS non supportato"); btn.innerText = "📍"; return; }
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
+                const data = await res.json();
+                const city = data.address.village || data.address.town || data.address.city || data.address.county || 'Current Location';
+                document.getElementById('ride-start-loc').value = city;
+            } catch (e) { alert("Connessione assente."); }
+            btn.innerText = "📍";
+        }, () => { btn.innerText = "📍"; });
+    }
+
+    let gpsWatchId = null; let gpsLastLat = null; let gpsLastLon = null; let gpsTotalDist = 0; let gpsTopSpeed = 0;
+    function calcDistanceMi(lat1, lon1, lat2, lon2) {
+      const R = 3958.8; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c;
+    }
+    
+    function startGPS() {
+      if (!navigator.geolocation) { alert("GPS non supportato dal dispositivo"); return; }
+      gpsTotalDist = 0; gpsTopSpeed = 0; gpsLastLat = null; gpsLastLon = null;
+      document.getElementById('gps-distance').innerText = "0.0"; document.getElementById('gps-top-speed').innerText = "0"; document.getElementById('gps-current-speed').innerText = "0";
+      document.getElementById('btn-start-gps').style.display = 'none'; document.getElementById('btn-stop-gps').style.display = 'block';
+      document.getElementById('gps-indicator').style.display = 'inline-block'; document.getElementById('gps-status-text').innerText = " RECORDING ACTIVE"; document.getElementById('gps-status-text').style.color = "var(--danger)";
+      gpsWatchId = navigator.geolocation.watchPosition((pos) => {
+        const lat = pos.coords.latitude; const lon = pos.coords.longitude;
+        let speedMph = (pos.coords.speed !== null) ? (pos.coords.speed * 2.23694) : 0; if (speedMph < 0) speedMph = 0;
+        document.getElementById('gps-current-speed').innerText = Math.round(speedMph);
+        if (speedMph > gpsTopSpeed) { gpsTopSpeed = Math.round(speedMph); document.getElementById('gps-top-speed').innerText = gpsTopSpeed; }
+        if (gpsLastLat !== null && gpsLastLon !== null) {
+          const dist = calcDistanceMi(gpsLastLat, gpsLastLon, lat, lon);
+          if(dist < 1) { gpsTotalDist += dist; document.getElementById('gps-distance').innerText = gpsTotalDist.toFixed(1); }
+        }
+        gpsLastLat = lat; gpsLastLon = lon;
+      }, (e) => { console.warn(e.message); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
+    }
+    
+    function stopGPS() {
+      if(gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+      document.getElementById('btn-start-gps').style.display = 'block'; document.getElementById('btn-stop-gps').style.display = 'none';
+      document.getElementById('gps-indicator').style.display = 'none'; document.getElementById('gps-status-text').innerText = " LIVE TELEMETRY READY"; document.getElementById('gps-status-text').style.color = "var(--muted)";
+      const currentOdo = profile.odo || 0;
+      document.getElementById('ride-odo-start').value = currentOdo; document.getElementById('ride-odo-end').value = (currentOdo + gpsTotalDist).toFixed(1);
+      document.getElementById('ride-top-speed').value = gpsTopSpeed;
+      alert(`GPS Tracking Stopped.\nLogged ${gpsTotalDist.toFixed(1)} miles.`);
+    }
+
+    function calculateDaysLeft(dateString, elementId) {
+      const el = document.getElementById(elementId);
+      if (!dateString) { el.innerText = "-"; el.className = "doc-status"; return; }
+      const expiry = new Date(dateString);
+      const diffDays = Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24)); 
+      if (diffDays < 0) { el.innerText = `EXPIRED`; el.className = "doc-status status-danger"; } 
+      else if (diffDays <= 30) { el.innerText = `Expiring (${diffDays}d)`; el.className = "doc-status status-warn"; } 
+      else { el.innerText = `Valid (${diffDays}d)`; el.className = "doc-status status-ok"; }
+    }
+    document.getElementById('doc-mot').addEventListener('change', (e) => calculateDaysLeft(e.target.value, 'status-mot'));
+    document.getElementById('doc-ins').addEventListener('change', (e) => calculateDaysLeft(e.target.value, 'status-ins'));
+    document.getElementById('doc-tax').addEventListener('change', (e) => calculateDaysLeft(e.target.value, 'status-tax'));
+
+    function toggleCustomMake() { document.getElementById('bike-make-custom').style.display = (document.getElementById('bike-make').value === 'Other') ? 'block' : 'none'; }
+
+    function loadProfileUI() {
+      document.getElementById('rider-name').value = profile.name || ''; document.getElementById('rider-base-address').value = profile.baseAddress || ''; 
+      document.getElementById('bike-make').value = profile.bikeMake || 'Lexmoto'; document.getElementById('bike-make-custom').value = profile.bikeMakeCustom || ''; 
+      document.getElementById('bike-model').value = profile.bikeModel || ''; document.getElementById('bike-year').value = profile.bikeYear || ''; 
+      document.getElementById('bike-odo').value = profile.odo || 0; document.getElementById('bike-mpg').value = profile.mpg || 100;
+      document.getElementById('bike-tank').value = profile.tank || 13;
+      document.getElementById('doc-mot').value = profile.docMot || ''; document.getElementById('doc-ins').value = profile.docIns || ''; document.getElementById('doc-tax').value = profile.docTax || '';
+      if (profile.photo) document.getElementById('rider-photo-preview').src = profile.photo;
+      toggleCustomMake();
+      calculateDaysLeft(profile.docMot, 'status-mot'); calculateDaysLeft(profile.docIns, 'status-ins'); calculateDaysLeft(profile.docTax, 'status-tax');
+    }
+    
+    document.getElementById('rider-photo-input').addEventListener('change', async (e) => { 
+      if (e.target.files[0]) { profile.photo = await compressImage(e.target.files[0]); loadProfileUI(); }
+    });
+
+    document.getElementById('save-profile-btn').addEventListener('click', () => {
+      profile.name = document.getElementById('rider-name').value; profile.baseAddress = document.getElementById('rider-base-address').value; 
+      profile.bikeMake = document.getElementById('bike-make').value; profile.bikeMakeCustom = document.getElementById('bike-make-custom').value; 
+      profile.bikeModel = document.getElementById('bike-model').value; profile.bikeYear = document.getElementById('bike-year').value; 
+      profile.odo = parseFloat(document.getElementById('bike-odo').value) || 0; profile.mpg = parseFloat(document.getElementById('bike-mpg').value) || 100;
+      profile.tank = parseFloat(document.getElementById('bike-tank').value) || 13;
+      profile.docMot = document.getElementById('doc-mot').value; profile.docIns = document.getElementById('doc-ins').value; profile.docTax = document.getElementById('doc-tax').value;
+      localStorage.setItem('mr_profile', JSON.stringify(profile)); alert('Settings Saved!'); loadProfileUI(); updateFuelWidget();
+      document.getElementById('ride-odo-start').value = profile.odo;
+    });
+
+    document.getElementById('ride-photo-input').addEventListener('change', async (e) => {
+      if (e.target.files[0]) { tempRidePhoto = await compressImage(e.target.files[0]); document.getElementById('ride-photo-preview').src = tempRidePhoto; document.getElementById('ride-photo-preview').style.display = 'block'; }
+    });
+
+    document.getElementById('ride-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const startOdo = parseFloat(document.getElementById('ride-odo-start').value); const endOdo = parseFloat(document.getElementById('ride-odo-end').value); 
+      const distance = endOdo - startOdo; const editId = document.getElementById('edit-ride-id').value;
+      if (distance <= 0) { alert('End Odometer must be greater than Start'); return; }
+      const now = new Date(); const timestamp = now.getTime(); const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+      let ride = { 
+        id: editId || ('r_' + timestamp), date: document.getElementById('ride-date').value, timestamp: timestamp, timeStr: timeStr, 
+        startLoc: document.getElementById('ride-start-loc').value || 'Unknown', endLoc: document.getElementById('ride-end-loc').value || 'Unknown', 
+        startOdo, endOdo, distance: parseFloat(distance.toFixed(1)), topSpeed: parseFloat(document.getElementById('ride-top-speed').value) || 0, 
+        notes: document.getElementById('ride-notes').value, photo: tempRidePhoto, favorite: false 
+      };
+
+      if (editId) { 
+        const index = rides.findIndex(x => x.id === editId); 
+        ride.timestamp = rides[index].timestamp || timestamp; ride.timeStr = rides[index].timeStr || timeStr; ride.favorite = rides[index].favorite; 
+        rides[index] = ride; 
+      } else { 
+        rides.unshift(ride); 
+        const fuelUsedLiters = (distance / (profile.mpg || 100)) * 4.54609;
+        profile.currentFuel = Math.max(0, (profile.currentFuel || 0) - fuelUsedLiters);
+      }
+      
+      localStorage.setItem('mr_rides', JSON.stringify(rides)); profile.odo = endOdo; localStorage.setItem('mr_profile', JSON.stringify(profile));
+      cancelEdit(); document.querySelectorAll('.nav-item')[2].click(); updateFuelWidget();
+    });
+
+    document.getElementById('maint-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const timestamp = new Date().getTime();
+      let log = {
+        id: 'm_' + timestamp, timestamp: timestamp, date: document.getElementById('maint-date').value, type: document.getElementById('maint-type').value,
+        odo: parseFloat(document.getElementById('maint-odo').value), notes: document.getElementById('maint-notes').value
+      };
+      maintLogs.unshift(log); localStorage.setItem('mr_maint', JSON.stringify(maintLogs));
+      if(log.odo > profile.odo) { profile.odo = log.odo; localStorage.setItem('mr_profile', JSON.stringify(profile)); }
+      document.getElementById('maint-form').reset(); document.getElementById('maint-date').value = todayISO(); document.getElementById('maint-odo').value = profile.odo;
+      alert('Service Logged!'); renderMaint();
+    });
+
+    function renderMaint() {
+      const container = document.getElementById('maint-list');
+      if (!maintLogs.length) { container.innerHTML = `<div class="card" style="text-align:center; color:var(--muted)">No service records.</div>`; return; }
+      container.innerHTML = maintLogs.map(m => {
+        return `
+        <div class="card" style="border-left: 5px solid var(--danger); margin-bottom:1.2rem; padding: 1.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem;">
+            <h4 style="margin:0; font-family:'Oswald'; color:var(--text); font-size:1.4rem;">${m.type}</h4>
+            <span style="font-size:0.9rem; color:var(--muted); font-family:'Share Tech Mono'">${m.date}</span>
+          </div>
+          <div style="font-family:'Share Tech Mono'; color:var(--accent); font-size:1.1rem; margin-bottom:0.8rem;">⚙️ ${m.odo} mi</div>
+          ${m.notes ? `<div style="font-size:1rem; color:var(--muted);">${m.notes}</div>` : ''}
+          <button class="btn btn-secondary" style="margin-top:1rem; padding:0.8rem; font-size:1rem; border-color:var(--danger); color:var(--danger);" onclick="deleteMaint('${m.id}')">Delete Record</button>
+        </div>`
+      }).join('');
+    }
+
+    function deleteMaint(id) { if(confirm('Delete this service record?')) { maintLogs = maintLogs.filter(x => x.id !== id); localStorage.setItem('mr_maint', JSON.stringify(maintLogs)); renderMaint(); } }
+
+    function renderDiary() {
+      const container = document.getElementById('diary-list');
+      if (!rides.length) { container.innerHTML = `<div class="card" style="text-align:center; color:var(--muted); padding:2rem;">No rides logged yet.</div>`; return; }
+      const sorted = [...rides].sort((a, b) => b.favorite - a.favorite || (b.timestamp || 0) - (a.timestamp || 0));
+      
+      container.innerHTML = sorted.map(r => {
+        const fuelLiters = ((r.distance / (profile.mpg || 100)) * 4.546).toFixed(2);
+        const displayTime = r.timeStr ? ` • ${r.timeStr}` : '';
+        const imgTag = r.photo ? `<img src="${r.photo}" class="img-preview" onclick="openLightbox(this.src)">` : '';
+        
+        return `
+        <div class="card ride-card ${r.favorite ? 'favorite' : ''}">
+          <button class="star-btn ${r.favorite ? 'active' : ''}" onclick="toggleFavorite('${r.id}')">★</button>
+          <div style="font-size:0.9rem; color:var(--muted); font-family:'Share Tech Mono'">${r.date}${displayTime}</div>
+          <h3 style="margin:0.4rem 0; font-family:'Oswald'; font-size: 1.5rem;">${r.startLoc} ➔ ${r.endLoc}</h3>
+          <div style="color:var(--accent); font-family:'Share Tech Mono'; margin-bottom:0.5rem; font-size: 1.1rem;">${r.distance} mi (${r.startOdo}➔${r.endOdo})</div>
+          ${imgTag}
+          <div style="font-size:1rem; color:var(--success); font-family:'Share Tech Mono'; margin-bottom:0.8rem;">⛽ Est. Fuel Used: ${fuelLiters} L</div>
+          <div style="margin-top:1rem; display:flex; gap:1rem;">
+            <button class="btn btn-edit" onclick="startEdit('${r.id}')">Edit</button>
+            <button class="btn btn-secondary" style="padding:0.8rem; font-size:1rem; flex:1; border-color:var(--danger); color:var(--danger);" onclick="deleteRide('${r.id}')">Delete</button>
+          </div>
+        </div>`
+      }).join('');
+    }
+
+    function toggleFavorite(id) { const r = rides.find(x => x.id === id); if (r) { r.favorite = !r.favorite; localStorage.setItem('mr_rides', JSON.stringify(rides)); renderDiary(); } }
+    function deleteRide(id) { if (confirm('Delete this ride log?')) { rides = rides.filter(x => x.id !== id); localStorage.setItem('mr_rides', JSON.stringify(rides)); renderDiary(); updateStats(); } }
+    
+    function startEdit(id) {
+      const r = rides.find(x => x.id === id); if(!r) return;
+      document.getElementById('edit-ride-id').value = r.id; document.getElementById('ride-date').value = r.date;
+      document.getElementById('ride-start-loc').value = r.startLoc; document.getElementById('ride-end-loc').value = r.endLoc;
+      document.getElementById('ride-odo-start').value = r.startOdo; document.getElementById('ride-odo-end').value = r.endOdo;
+      document.getElementById('ride-top-speed').value = r.topSpeed || ''; document.getElementById('ride-notes').value = r.notes || '';
+      tempRidePhoto = r.photo || '';
+      if(tempRidePhoto) { document.getElementById('ride-photo-preview').src = tempRidePhoto; document.getElementById('ride-photo-preview').style.display = 'block'; } 
+      else { document.getElementById('ride-photo-preview').style.display = 'none'; }
+      
+      document.getElementById('save-ride-btn').innerText = "Update Ride Log"; document.getElementById('cancel-edit-btn').style.display = "block";
+      document.querySelectorAll('.nav-item')[3].click();
+    }
+    
+    function cancelEdit() {
+      document.getElementById('ride-form').reset(); document.getElementById('edit-ride-id').value = ''; document.getElementById('ride-date').value = todayISO();
+      document.getElementById('ride-photo-preview').style.display = 'none'; tempRidePhoto = ''; document.getElementById('ride-odo-start').value = profile.odo || 0;
+      updateStartLocationField(); document.getElementById('save-ride-btn').innerText = "Save Ride Log"; document.getElementById('cancel-edit-btn').style.display = "none";
+    }
+
+    function updateStats() {
+      const totalRides = rides.length; const totalMiles = rides.reduce((sum, r) => sum + (r.distance || 0), 0);
+      const topSpeed = rides.reduce((max, r) => r.topSpeed > max ? r.topSpeed : max, 0); const longest = rides.reduce((max, r) => r.distance > max ? r.distance : max, 0);
+      document.getElementById('stat-total-rides').innerText = totalRides; document.getElementById('stat-total-miles').innerHTML = `${totalMiles.toFixed(1)}<span style="font-size:1.2rem; color:var(--muted)">mi</span>`;
+      document.getElementById('stat-top-speed').innerHTML = `${topSpeed}<span style="font-size:1.2rem; color:var(--muted)">mph</span>`; document.getElementById('stat-longest-ride').innerHTML = `${longest.toFixed(1)}<span style="font-size:1.2rem; color:var(--muted)">mi</span>`;
+      
+      const summaryDiv = document.getElementById('stats-summary');
+      if (totalRides > 0) {
+        const latest = [...rides].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+        const imgPreview = latest.photo ? `<img src="${latest.photo}" style="width:100%; max-height:200px; object-fit:cover; border-radius:10px; margin-bottom:0.8rem;">` : '';
+        summaryDiv.innerHTML = `
+          ${imgPreview}
+          <div style="font-family:'Oswald'; font-size:1.5rem; color:var(--accent); margin-bottom:0.4rem;">${latest.startLoc} ➔ ${latest.endLoc}</div>
+          <div style="font-size:1rem; color:var(--text);">${latest.distance} mi logged on ${latest.date}</div>
+          <div class="grid-2" style="margin-top: 1.2rem;">
+            <button class="btn btn-waze" onclick="openNavApp('waze', '${latest.endLoc}')">Waze</button>
+            <button class="btn btn-gmaps" onclick="openNavApp('gmaps', '${latest.endLoc}')">G-Maps</button>
+          </div>
+        `;
+      } else { summaryDiv.innerHTML = "Log your first ride to see updates!"; }
+    }
+    
+    loadProfileUI(); updateStats(); updateFuelWidget(); renderDiary(); renderHub();
+    document.getElementById('ride-odo-start').value = profile.odo || 0; document.getElementById('maint-odo').value = profile.odo || 0;
+    updateStartLocationField();
+  </script>
+</body>
+</html>
