@@ -10,6 +10,7 @@ export default function DiaryScreen() {
   const [distance, setDistance] = useState('');
   const [topSpeed, setTopSpeed] = useState('');
   const [notes, setNotes] = useState('');
+  const [editingIndex, setEditingIndex] = useState(null);
 
   useEffect(() => {
     const loadDiary = async () => {
@@ -21,15 +22,30 @@ export default function DiaryScreen() {
 
   const handleSave = async () => {
     if (title.trim() === '') return;
-    const newRide = {
-      id: Date.now().toString(),
-      title,
-      distance,
-      topSpeed,
-      notes,
-      date: new Date().toLocaleDateString()
-    };
-    const newDiary = [newRide, ...diary];
+    
+    let newDiary = [...diary];
+    
+    if (editingIndex !== null) {
+      newDiary[editingIndex] = {
+        ...newDiary[editingIndex],
+        title,
+        distance,
+        topSpeed,
+        notes
+      };
+    } else {
+      const newRide = {
+        id: Date.now().toString(),
+        title,
+        distance,
+        topSpeed,
+        notes,
+        date: new Date().toLocaleDateString(),
+        type: 'Manual'
+      };
+      newDiary = [newRide, ...diary];
+    }
+    
     setDiary(newDiary);
     await saveRideDiary(newDiary);
     
@@ -37,6 +53,7 @@ export default function DiaryScreen() {
     setDistance('');
     setTopSpeed('');
     setNotes('');
+    setEditingIndex(null);
     setShowForm(false);
     Keyboard.dismiss();
   };
@@ -46,14 +63,32 @@ export default function DiaryScreen() {
     setDistance('');
     setTopSpeed('');
     setNotes('');
+    setEditingIndex(null);
     setShowForm(false);
     Keyboard.dismiss();
   };
 
-  const handleDelete = async (id) => {
-    const newDiary = diary.filter(ride => ride.id !== id);
+  const editRide = (index) => {
+    const ride = diary[index];
+    setTitle(ride.title);
+    setDistance(ride.distance || '');
+    setTopSpeed(ride.topSpeed || '');
+    setNotes(ride.notes || '');
+    setEditingIndex(index);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (index) => {
+    const newDiary = [...diary];
+    newDiary.splice(index, 1);
     setDiary(newDiary);
     await saveRideDiary(newDiary);
+    
+    if (editingIndex === index) {
+      handleCancel();
+    } else if (editingIndex !== null && index < editingIndex) {
+      setEditingIndex(editingIndex - 1);
+    }
   };
 
   return (
@@ -71,7 +106,7 @@ export default function DiaryScreen() {
       {showForm && (
         <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
           <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Log a Ride</Text>
+            <Text style={styles.formTitle}>{editingIndex !== null ? 'Edit Ride' : 'Log a Ride'}</Text>
             
             <TextInput
               style={styles.input}
@@ -112,10 +147,10 @@ export default function DiaryScreen() {
             
             <View style={styles.actionButtonsRow}>
               <TouchableOpacity style={[styles.saveButton, { flex: 1, marginRight: 10 }]} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.saveButtonText}>{editingIndex !== null ? 'Update Ride' : 'Save'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.cancelButton, { flex: 1 }]} onPress={handleCancel}>
-                <Text style={styles.saveButtonText}>Cancel</Text>
+                <Text style={styles.saveButtonText}>{editingIndex !== null ? 'Cancel Edit' : 'Cancel'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -123,10 +158,18 @@ export default function DiaryScreen() {
       )}
 
       <ScrollView style={styles.listContainer} keyboardShouldPersistTaps='handled'>
-        {diary.map((ride) => (
+        {diary.map((ride, index) => (
           <View key={ride.id} style={styles.rideCard}>
             <View style={styles.rideInfo}>
-              <Text style={styles.rideTitle}>{ride.title}</Text>
+              <View style={styles.rideTitleRow}>
+                <Text style={styles.rideTitle}>{ride.title}</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {(ride.type === 'GPS' || ride.type === '📍 GPS') ? '📍 GPS' : '✍️ Manual'}
+                  </Text>
+                </View>
+              </View>
+              
               <Text style={styles.rideDate}>{ride.date}</Text>
               
               <View style={styles.statsRow}>
@@ -137,7 +180,10 @@ export default function DiaryScreen() {
               {ride.notes ? <Text style={styles.rideNotes}>{ride.notes}</Text> : null}
             </View>
             <View style={styles.cardActions}>
-              <TouchableOpacity onPress={() => handleDelete(ride.id)} style={styles.deleteButton}>
+              <TouchableOpacity onPress={() => editRide(index)} style={styles.actionButton}>
+                <Text style={styles.editActionText}>✏️ Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDelete(index)} style={styles.actionButton}>
                 <Text style={styles.deleteActionText}>🗑️ Delete</Text>
               </TouchableOpacity>
             </View>
@@ -249,15 +295,31 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
+  rideTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   rideTitle: {
     color: COLORS.text,
     fontSize: 18,
+    fontWeight: 'bold',
+    marginRight: 10,
+  },
+  badge: {
+    backgroundColor: COLORS.border,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeText: {
+    color: COLORS.text,
+    fontSize: 10,
     fontWeight: 'bold',
   },
   rideDate: {
     color: COLORS.textMuted,
     fontSize: 12,
-    marginTop: 2,
     marginBottom: 8,
   },
   statsRow: {
@@ -281,9 +343,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
   },
-  deleteButton: {
+  actionButton: {
     paddingVertical: 5,
     paddingHorizontal: 8,
+  },
+  editActionText: {
+    color: COLORS.secondary,
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 8,
   },
   deleteActionText: {
     color: COLORS.danger,
