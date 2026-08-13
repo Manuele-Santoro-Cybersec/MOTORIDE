@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import * as Location from 'expo-location';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MapView from 'react-native-maps';
@@ -35,13 +36,44 @@ function DiaryScreen() {
 }
 
 function LogScreen() {
+  const [location, setLocation] = useState(null);
+
+  useEffect(() => {
+    let subscription;
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Permesso di localizzazione negato');
+        return;
+      }
+
+      subscription = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High },
+        (loc) => {
+          setLocation(loc.coords);
+        }
+      );
+    })();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, []);
+
   // Questa è la tab viva: la Mappa!
   return (
     <View style={styles.container}>
       <MapView 
         style={styles.map} 
         showsUserLocation={true}
-        initialRegion={{
+        region={location ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        } : {
           latitude: 51.4543,
           longitude: -0.9781,
           latitudeDelta: 0.1,
