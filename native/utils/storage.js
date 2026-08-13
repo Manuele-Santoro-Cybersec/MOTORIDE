@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PROFILE_KEY = '@profile_data';
 const GARAGE_KEY = '@garage_log';
+const DIARY_KEY = '@ride_diary';
 
 const defaultProfile = {
   name: 'Manuele',
@@ -61,5 +62,27 @@ export const saveGarageLog = async (logArray) => {
     await AsyncStorage.setItem(GARAGE_KEY, jsonValue);
   } catch (e) {
     console.error('Error saving garage log', e);
+  }
+};
+
+export const getRideDiary = async () => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(DIARY_KEY);
+    if (jsonValue != null) {
+      return JSON.parse(jsonValue);
+    }
+    return [];
+  } catch (e) {
+    console.error('Error reading ride diary', e);
+    return [];
+  }
+};
+
+export const saveRideDiary = async (diaryArray) => {
+  try {
+    const jsonValue = JSON.stringify(diaryArray);
+    await AsyncStorage.setItem(DIARY_KEY, jsonValue);
+  } catch (e) {
+    console.error('Error saving ride diary', e);
   }
 };

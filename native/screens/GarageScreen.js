@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Keyboard, TouchableWithoutFeedback, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { getProfile, getGarageLog, saveGarageLog } from '../utils/storage';
 
@@ -87,57 +87,61 @@ export default function GarageScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Bike Status</Text>
-        <Text style={styles.odometerText}>{profile.currentOdometer || '0'} mi</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{editingIndex !== null ? 'Edit Service Record' : 'Log New Service'}</Text>
-        
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={serviceType}
-            onValueChange={(itemValue) => setServiceType(itemValue)}
-            style={styles.picker}
-            itemStyle={{ color: '#FFFFFF' }}
-            dropdownIconColor="#ffffff"
-          >
-            <Picker.Item label="Washing Bike" value="Washing Bike" />
-            <Picker.Item label="Chain Service" value="Chain Service" />
-            <Picker.Item label="Chain Cleaning" value="Chain Cleaning" />
-            <Picker.Item label="Official Service" value="Official Service" />
-            <Picker.Item label="Oil Change" value="Oil Change" />
-            <Picker.Item label="Tyre Pressure" value="Tyre Pressure" />
-            <Picker.Item label="Other" value="Other" />
-          </Picker>
-        </View>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Mileage done at"
-          placeholderTextColor="#888"
-          keyboardType="numeric"
-          returnKeyType="done"
-          value={mileage}
-          onChangeText={setMileage}
-        />
-        
-        {editingIndex !== null ? (
-          <View style={styles.actionButtonsRow}>
-            <TouchableOpacity style={[styles.saveButton, { flex: 1, marginRight: 10 }]} onPress={handleSaveRecord}>
-              <Text style={styles.saveButtonText}>Update Record</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.cancelButton, { flex: 1 }]} onPress={handleCancelEdit}>
-              <Text style={styles.saveButtonText}>Cancel Edit</Text>
-            </TouchableOpacity>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View>
+          <View style={styles.header}>
+            <Text style={styles.title}>Bike Status</Text>
+            <Text style={styles.odometerText}>{profile.currentOdometer || '0'} mi</Text>
           </View>
-        ) : (
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveRecord}>
-            <Text style={styles.saveButtonText}>Save Record</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{editingIndex !== null ? 'Edit Service Record' : 'Log New Service'}</Text>
+            
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={serviceType}
+                onValueChange={(itemValue) => setServiceType(itemValue)}
+                style={styles.picker}
+                itemStyle={{ color: '#FFFFFF', height: Platform.OS === 'ios' ? 120 : undefined }}
+                dropdownIconColor="#ffffff"
+              >
+                <Picker.Item label="Washing Bike" value="Washing Bike" />
+                <Picker.Item label="Chain Service" value="Chain Service" />
+                <Picker.Item label="Chain Cleaning" value="Chain Cleaning" />
+                <Picker.Item label="Official Service" value="Official Service" />
+                <Picker.Item label="Oil Change" value="Oil Change" />
+                <Picker.Item label="Tyre Pressure" value="Tyre Pressure" />
+                <Picker.Item label="Other" value="Other" />
+              </Picker>
+            </View>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Mileage done at"
+              placeholderTextColor="#888"
+              keyboardType="numeric"
+              returnKeyType="done"
+              value={mileage}
+              onChangeText={setMileage}
+            />
+            
+            {editingIndex !== null ? (
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity style={[styles.saveButton, { flex: 1, marginRight: 10 }]} onPress={handleSaveRecord}>
+                  <Text style={styles.saveButtonText}>Update Record</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.cancelButton, { flex: 1 }]} onPress={handleCancelEdit}>
+                  <Text style={styles.saveButtonText}>Cancel Edit</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveRecord}>
+                <Text style={styles.saveButtonText}>Save Record</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
 
       <Text style={styles.sectionTitle}>Service History</Text>
       <ScrollView style={styles.historyContainer} keyboardShouldPersistTaps='handled'>
@@ -210,6 +214,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
     overflow: 'hidden',
+    justifyContent: 'center',
+    height: Platform.OS === 'ios' ? 120 : 'auto',
   },
   picker: {
     color: '#ffffff',
