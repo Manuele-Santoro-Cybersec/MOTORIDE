@@ -46,12 +46,12 @@ export default function StatsScreen() {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-      <Text style={styles.title}>Stats & Benzina ⛽</Text>
+      <Text style={styles.title}>Fuel Stats ⛽</Text>
       
       <View style={styles.formContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Litri (es. 15.5)"
+          placeholder="Liters (e.g. 15.5)"
           placeholderTextColor="#888"
           keyboardType="numeric"
           value={liters}
@@ -59,7 +59,7 @@ export default function StatsScreen() {
         />
         <TextInput
           style={styles.input}
-          placeholder="Costo £ (es. 20.00)"
+          placeholder="Cost £ (e.g. 20.00)"
           placeholderTextColor="#888"
           keyboardType="numeric"
           value={cost}
@@ -67,11 +67,11 @@ export default function StatsScreen() {
         />
         
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>SALVA RIFORNIMENTO</Text>
+          <Text style={styles.saveButtonText}>SAVE REFUEL</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.subtitle}>Storico Rifornimenti</Text>
+      <Text style={styles.subtitle}>Refuel History</Text>
       
       <FlatList
         data={refuels}
@@ -79,7 +79,7 @@ export default function StatsScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Nessun rifornimento salvato.</Text>
+          <Text style={styles.emptyText}>No refuels saved yet.</Text>
         }
       />
       </KeyboardAvoidingView>
