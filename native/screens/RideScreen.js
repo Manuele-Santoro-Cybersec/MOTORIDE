@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
-import MapView from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { getProfile, saveProfile, getRideDiary, saveRideDiary } from '../utils/storage';
 import { COLORS, globalStyles } from '../constants/theme';
 
@@ -12,6 +12,13 @@ export default function RideScreen() {
   const [startOdometer, setStartOdometer] = useState(0);
   const [currentDistance, setCurrentDistance] = useState(0);
   const [topSpeed, setTopSpeed] = useState(0);
+  const [stops, setStops] = useState([]);
+  const [plannedStops, setPlannedStops] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isStopModalVisible, setIsStopModalVisible] = useState(false);
+  const [stopLabel, setStopLabel] = useState('');
+  const [tempStopCoord, setTempStopCoord] = useState(null);
   const lastCoord = useRef(null);
 
   const handleStartRide = async () => {
@@ -20,6 +27,7 @@ export default function RideScreen() {
     setStartOdometer(currentOdo);
     setCurrentDistance(0);
     setTopSpeed(0);
+    setStops([]);
     lastCoord.current = null;
     setIsRecording(true);
     isRecordingRef.current = true;
@@ -32,6 +40,8 @@ export default function RideScreen() {
     const endOdometer = startOdometer + currentDistance;
     
     const diary = await getRideDiary();
+    const allStops = [...plannedStops, ...stops];
+    
     const newRide = {
       id: Date.now().toString(),
       title: `GPS Ride - ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
@@ -39,7 +49,8 @@ export default function RideScreen() {
       topSpeed: Math.round(topSpeed),
       notes: '',
       date: new Date().toLocaleDateString(),
-      type: 'GPS'
+      type: 'GPS',
+      stops: allStops
     };
     await saveRideDiary([newRide, ...diary]);
     
@@ -52,6 +63,63 @@ export default function RideScreen() {
     setCurrentDistance(0);
     setTopSpeed(0);
     setStartOdometer(0);
+    setStops([]);
+    setPlannedStops([]);
+  };
+
+  const handleAddStopPress = () => {
+    if (lastCoord.current) {
+      setTempStopCoord(lastCoord.current);
+      setStopLabel('');
+      setIsStopModalVisible(true);
+    }
+  };
+
+  const saveStop = () => {
+    if (tempStopCoord) {
+      const newStop = {
+        id: Date.now().toString(),
+        latitude: tempStopCoord.latitude,
+        longitude: tempStopCoord.longitude,
+        label: stopLabel.trim(),
+        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        type: 'live'
+      };
+      setStops(prev => [...prev, newStop]);
+    }
+    setIsStopModalVisible(false);
+    setTempStopCoord(null);
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5`, {
+        headers: { 'User-Agent': 'MOTORIDE-App' }
+      });
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const addPlannedStop = (item) => {
+    const newStop = {
+      id: Date.now().toString(),
+      latitude: parseFloat(item.lat),
+      longitude: parseFloat(item.lon),
+      label: item.display_name,
+      type: 'planned'
+    };
+    setPlannedStops(prev => [...prev, newStop]);
+    setSearchResults([]);
+    setSearchQuery('');
+    Keyboard.dismiss();
+  };
+
+  const removePlannedStop = (id) => {
+    setPlannedStops(prev => prev.filter(s => s.id !== id));
   };
 
   const haversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -124,7 +192,71 @@ export default function RideScreen() {
           latitudeDelta: 0.1,
           longitudeDelta: 0.1,
         }}
-      />
+      >
+        {stops.map(stop => (
+          <Marker
+            key={stop.id}
+            coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+            title={stop.label || 'Stop'}
+            description={stop.timestamp}
+            pinColor={COLORS.primary}
+          />
+        ))}
+        {plannedStops.map(stop => (
+          <Marker
+            key={stop.id}
+            coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+            title={stop.label || 'Planned Stop'}
+            pinColor={COLORS.secondary}
+          />
+        ))}
+      </MapView>
+      
+      {!isRecording && (
+        <View style={styles.planOverlay}>
+          <Text style={styles.planTitle}>Plan Your Route</Text>
+          <View style={styles.searchRow}>
+            <TextInput 
+              style={styles.searchInput}
+              placeholder="Search a place..."
+              placeholderTextColor={COLORS.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+            />
+            <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
+              <Text style={styles.searchBtnText}>🔍</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {searchResults.length > 0 && (
+            <ScrollView style={styles.searchResultsContainer} keyboardShouldPersistTaps="handled">
+              {searchResults.map(item => (
+                <View key={item.place_id} style={styles.searchResultItem}>
+                  <Text style={styles.searchResultText} numberOfLines={2}>{item.display_name}</Text>
+                  <TouchableOpacity style={styles.searchAddBtn} onPress={() => addPlannedStop(item)}>
+                    <Text style={styles.searchAddBtnText}>Add</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          {plannedStops.length > 0 && (
+            <ScrollView style={styles.plannedStopsContainer} keyboardShouldPersistTaps="handled">
+              {plannedStops.map((stop, index) => (
+                <View key={stop.id} style={styles.plannedStopRow}>
+                  <Text style={styles.plannedStopText} numberOfLines={1}>{index + 1}. {stop.label}</Text>
+                  <TouchableOpacity onPress={() => removePlannedStop(stop.id)}>
+                    <Text style={styles.plannedStopRemove}>❌</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      )}
       
       {!isRecording && (
         <View style={styles.overlayBottom}>
@@ -151,11 +283,40 @@ export default function RideScreen() {
             </View>
           </View>
           
-          <TouchableOpacity style={styles.stopButton} onPress={handleStopRide}>
-            <Text style={styles.startButtonText}>⏹ STOP & SAVE</Text>
-          </TouchableOpacity>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+            <TouchableOpacity style={[styles.stopButton, {flex: 1, marginRight: 10, backgroundColor: COLORS.primary}]} onPress={handleAddStopPress}>
+              <Text style={styles.startButtonText}>🚏 ADD STOP</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[styles.stopButton, {flex: 1}]} onPress={handleStopRide}>
+              <Text style={styles.startButtonText}>⏹ STOP & SAVE</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
+
+      <Modal visible={isStopModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Stop</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Label (e.g. Coffee Break)"
+              placeholderTextColor={COLORS.textMuted}
+              value={stopLabel}
+              onChangeText={setStopLabel}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setIsStopModalVisible(false)}>
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnSave} onPress={saveStop}>
+                <Text style={styles.modalBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -170,6 +331,112 @@ const styles = StyleSheet.create({
     bottom: 40,
     alignSelf: 'center',
     width: '80%',
+  },
+  planOverlay: {
+    position: 'absolute',
+    top: 50,
+    alignSelf: 'center',
+    width: '90%',
+    backgroundColor: 'rgba(30, 30, 30, 0.95)',
+    borderRadius: 16,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 5,
+    maxHeight: '60%',
+  },
+  planTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    color: COLORS.text,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  searchBtn: {
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginLeft: 10,
+  },
+  searchBtnText: {
+    color: COLORS.text,
+    fontSize: 16,
+  },
+  searchResultsContainer: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+    maxHeight: 150,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  searchResultText: {
+    color: COLORS.text,
+    flex: 1,
+    marginRight: 10,
+    fontSize: 12,
+  },
+  searchAddBtn: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  searchAddBtnText: {
+    color: COLORS.background,
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  plannedStopsContainer: {
+    marginBottom: 5,
+    maxHeight: 120,
+  },
+  plannedStopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  plannedStopText: {
+    color: COLORS.secondary,
+    flex: 1,
+    fontSize: 14,
+    marginRight: 10,
+  },
+  plannedStopRemove: {
+    fontSize: 14,
   },
   startButton: {
     backgroundColor: COLORS.success,
@@ -228,5 +495,59 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 30,
     alignItems: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalInput: {
+    backgroundColor: COLORS.background,
+    color: COLORS.text,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalBtnCancel: {
+    flex: 1,
+    backgroundColor: COLORS.border,
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  modalBtnSave: {
+    flex: 1,
+    backgroundColor: COLORS.success,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    color: COLORS.text,
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });

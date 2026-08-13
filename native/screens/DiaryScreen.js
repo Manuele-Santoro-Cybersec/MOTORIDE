@@ -229,6 +229,10 @@ export default function DiaryScreen() {
                 {ride.topSpeed ? <Text style={styles.rideStat}>Top Speed: {ride.topSpeed} mph</Text> : null}
               </View>
               
+              {ride.stops && ride.stops.length > 0 ? (
+                <Text style={styles.rideStopsCount}>🚏 {ride.stops.length} stop{ride.stops.length > 1 ? 's' : ''}</Text>
+              ) : null}
+              
               {ride.notes ? <Text style={styles.rideNotes}>{ride.notes}</Text> : null}
             </View>
             <View style={styles.cardActions}>
@@ -435,6 +439,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
     marginRight: 15,
+  },
+  rideStopsCount: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
   rideNotes: {
     color: COLORS.textMuted,
