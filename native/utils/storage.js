@@ -11,7 +11,12 @@ const defaultProfile = {
   catA: 'In Progress',
   totalDist: 0,
   topSpeed: 0,
-  totalRides: 0
+  totalRides: 0,
+  avatarUri: null,
+  motExpiry: '',
+  taxExpiry: '',
+  insExpiry: '',
+  currentOdometer: '0'
 };
 
 export const getProfile = async () => {
