@@ -292,17 +292,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  rideCard: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.card,
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
-  },
   formCard: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
@@ -405,15 +394,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     borderWidth: 1,
     borderColor: COLORS.border,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
   },
   rideInfo: {
-    flex: 1,
     marginRight: 10,
   },
   rideTitleRow: {
@@ -478,8 +465,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   cardActions: {
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderColor: COLORS.border,
+    paddingTop: 12,
+    marginTop: 10,
   },
   actionButton: {
     paddingVertical: 5,
@@ -489,7 +480,6 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontWeight: 'bold',
     fontSize: 14,
-    marginBottom: 8,
   },
   deleteActionText: {
     color: COLORS.danger,
@@ -500,7 +490,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: 'bold',
     fontSize: 14,
-    marginBottom: 8,
   },
   noHistoryText: {
     color: COLORS.textMuted,

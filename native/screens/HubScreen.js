@@ -72,7 +72,6 @@ export default function HubScreen({ route, navigation }) {
   const [newDays, setNewDays] = useState([]);
   const [editingHubId, setEditingHubId] = useState(null);
   const [newIsSavedRoute, setNewIsSavedRoute] = useState(false);
-  const [activeTab, setActiveTab] = useState('Hubs');
 
   useEffect(() => {
     if (route?.params?.prefillHub) {
@@ -80,7 +79,6 @@ export default function HubScreen({ route, navigation }) {
       setNewStartLoc(route.params.prefillHub.startLoc || '');
       setNewDestName(route.params.prefillHub.destName || '');
       setNewIsSavedRoute(!!route.params.prefillHub.isSavedRoute);
-      if (route.params.prefillHub.isSavedRoute) setActiveTab('Routes');
       setShowForm(true);
       navigation.setParams({ prefillHub: undefined });
     }
@@ -181,16 +179,77 @@ export default function HubScreen({ route, navigation }) {
 
   const today = new Date().getDay();
 
-  const combinedHubs = [...defaultHubs, ...customHubs];
-  const hubsToRender = combinedHubs.filter(h => activeTab === 'Hubs' ? !h.isSavedRoute : h.isSavedRoute);
-  
-  const sortedHubs = hubsToRender.sort((a, b) => {
+  const sortedDefaultHubs = [...defaultHubs].sort((a, b) => {
     const aActive = a.days.includes(today);
     const bActive = b.days.includes(today);
     if (aActive && !bActive) return -1;
     if (!aActive && bActive) return 1;
     return 0;
   });
+
+  const sortedCustomHubs = [...customHubs].sort((a, b) => {
+    const aActive = a.days.includes(today);
+    const bActive = b.days.includes(today);
+    if (aActive && !bActive) return -1;
+    if (!aActive && bActive) return 1;
+    return 0;
+  });
+
+  const renderHubCard = (hub, index) => {
+    const isActive = hub.days.includes(today);
+    const borderColor = isActive ? COLORS.danger : COLORS.secondary;
+    const badgeText = isActive ? '🔥 TONIGHT' : 'LOCAL';
+    const badgeColor = isActive ? COLORS.danger : (COLORS.warning || COLORS.primary);
+
+    return (
+      <View key={`${hub.id || hub.title}-${index}`} style={[styles.hubCard, { borderLeftColor: borderColor }]}>
+        <View style={styles.hubHeader}>
+          <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+            <Text style={styles.hubTitle}>{hub.title}</Text>
+            <Text style={[styles.badge, { color: badgeColor }]}>{badgeText}</Text>
+          </View>
+          {hub.isCustom && (
+            <View style={{flexDirection: 'row'}}>
+              <TouchableOpacity onPress={() => handleEditCustomHub(hub)} style={{marginRight: 10}}>
+                <Text style={{fontSize: 16}}>✏️</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDeleteCustomHub(hub.id)}>
+                <Text style={{fontSize: 16}}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+        <Text style={styles.hubDistance}>
+          {hub.isCustom ? `Start: ${hub.startLoc}` : `${hub.distance} mi away`}
+        </Text>
+        
+        <View style={styles.actionRow}>
+          {hub.isCustom && !hub.lat ? (
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => navigation.navigate('Ride', { attachToHubId: hub.id })}
+            >
+              <Text style={styles.actionButtonText}>📍 Plan Route</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => navigation.navigate('Ride', { hubToRoute: hub })}
+            >
+              <Text style={styles.actionButtonText}>Ride</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity 
+            style={styles.shareButton} 
+            onPress={() => handleShare(hub)}
+          >
+            <Text style={styles.shareButtonText}>Share / RSVP</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <ScrollView style={globalStyles.container} contentContainerStyle={styles.scrollContent}>
@@ -209,21 +268,6 @@ export default function HubScreen({ route, navigation }) {
           setShowForm(!showForm);
         }}>
           <Text style={styles.addHubBtnText}>{showForm ? 'Cancel' : '+ Personal Hub'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-        <TouchableOpacity 
-          style={{ flex: 1, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: activeTab === 'Hubs' ? COLORS.primary : COLORS.border, alignItems: 'center' }}
-          onPress={() => { setActiveTab('Hubs'); setShowForm(false); }}
-        >
-          <Text style={{ color: activeTab === 'Hubs' ? COLORS.primary : COLORS.text, fontWeight: 'bold' }}>Active Hubs</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={{ flex: 1, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: activeTab === 'Routes' ? COLORS.primary : COLORS.border, alignItems: 'center' }}
-          onPress={() => { setActiveTab('Routes'); setShowForm(false); }}
-        >
-          <Text style={{ color: activeTab === 'Routes' ? COLORS.primary : COLORS.text, fontWeight: 'bold' }}>My Saved Routes</Text>
         </TouchableOpacity>
       </View>
 
@@ -288,61 +332,11 @@ export default function HubScreen({ route, navigation }) {
         </View>
       )}
       
-      {sortedHubs.map((hub, index) => {
-        const isActive = hub.days.includes(today);
-        const borderColor = isActive ? COLORS.danger : COLORS.secondary;
-        const badgeText = isActive ? '🔥 TONIGHT' : 'LOCAL';
-        const badgeColor = isActive ? COLORS.danger : (COLORS.warning || COLORS.primary);
-
-        return (
-          <View key={index} style={[styles.hubCard, { borderLeftColor: borderColor }]}>
-            <View style={styles.hubHeader}>
-              <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                <Text style={styles.hubTitle}>{hub.title}</Text>
-                <Text style={[styles.badge, { color: badgeColor }]}>{badgeText}</Text>
-              </View>
-              {hub.isCustom && (
-                <View style={{flexDirection: 'row'}}>
-                  <TouchableOpacity onPress={() => handleEditCustomHub(hub)} style={{marginRight: 10}}>
-                    <Text style={{fontSize: 16}}>✏️</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteCustomHub(hub.id)}>
-                    <Text style={{fontSize: 16}}>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-            <Text style={styles.hubDistance}>
-              {hub.isCustom ? `Start: ${hub.startLoc}` : `${hub.distance} mi away`}
-            </Text>
-            
-            <View style={styles.actionRow}>
-              {hub.isCustom && !hub.lat ? (
-                <TouchableOpacity 
-                  style={styles.actionButton} 
-                  onPress={() => navigation.navigate('Ride', { attachToHubId: hub.id })}
-                >
-                  <Text style={styles.actionButtonText}>📍 Plan Route</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity 
-                  style={styles.actionButton} 
-                  onPress={() => navigation.navigate('Ride', { hubToRoute: hub })}
-                >
-                  <Text style={styles.actionButtonText}>Ride</Text>
-                </TouchableOpacity>
-              )}
-              
-              <TouchableOpacity 
-                style={styles.shareButton} 
-                onPress={() => handleShare(hub)}
-              >
-                <Text style={styles.shareButtonText}>Share / RSVP</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        );
-      })}
+      {sortedDefaultHubs.map(renderHubCard)}
+      
+      <Text style={{color: COLORS.text, fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 10}}>My Custom Routes</Text>
+      
+      {sortedCustomHubs.map(renderHubCard)}
     </ScrollView>
   );
 }
