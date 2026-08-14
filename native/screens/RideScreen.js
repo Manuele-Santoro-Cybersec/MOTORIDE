@@ -6,7 +6,7 @@ import { getProfile, saveProfile, getRideDiary, saveRideDiary } from '../utils/s
 import { getRoute } from '../utils/routing';
 import { COLORS, globalStyles } from '../constants/theme';
 
-export default function RideScreen() {
+export default function RideScreen({ route }) {
   const [location, setLocation] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
@@ -133,6 +133,25 @@ export default function RideScreen() {
   const removePlannedStop = (id) => {
     setPlannedStops(prev => prev.filter(s => s.id !== id));
   };
+
+  useEffect(() => {
+    if (route?.params?.hubToRoute) {
+      const hub = route.params.hubToRoute;
+      if (hub.lat && hub.lon) {
+        setPlannedStops(prev => {
+          if (prev.some(s => s.label === hub.title)) return prev;
+          const newStop = {
+            id: Date.now().toString(),
+            latitude: parseFloat(hub.lat),
+            longitude: parseFloat(hub.lon),
+            label: hub.title,
+            type: 'planned'
+          };
+          return [...prev, newStop];
+        });
+      }
+    }
+  }, [route?.params?.hubToRoute]);
 
   const haversineDistance = (lat1, lon1, lat2, lon2) => {
     const R = 3958.8; // Earth radius in miles

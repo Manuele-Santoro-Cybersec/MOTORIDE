@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const PROFILE_KEY = '@profile_data';
 const GARAGE_KEY = '@garage_log';
 const DIARY_KEY = '@ride_diary';
+const CUSTOM_HUBS_KEY = '@custom_hubs';
 
 const defaultProfile = {
   name: 'Manuele',
@@ -84,5 +85,27 @@ export const saveRideDiary = async (diaryArray) => {
     await AsyncStorage.setItem(DIARY_KEY, jsonValue);
   } catch (e) {
     console.error('Error saving ride diary', e);
+  }
+};
+
+export const getCustomHubs = async () => {
+  try {
+    const jsonValue = await AsyncStorage.getItem(CUSTOM_HUBS_KEY);
+    if (jsonValue != null) {
+      return JSON.parse(jsonValue);
+    }
+    return [];
+  } catch (e) {
+    console.error('Error reading custom hubs', e);
+    return [];
+  }
+};
+
+export const saveCustomHubs = async (hubsArray) => {
+  try {
+    const jsonValue = JSON.stringify(hubsArray);
+    await AsyncStorage.setItem(CUSTOM_HUBS_KEY, jsonValue);
+  } catch (e) {
+    console.error('Error saving custom hubs', e);
   }
 };
