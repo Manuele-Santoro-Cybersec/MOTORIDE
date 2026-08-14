@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Keyboard, TouchableWithoutFeedback, Platform } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { getProfile, saveProfile, getGarageLog, saveGarageLog } from '../utils/storage';
 import { COLORS, globalStyles } from '../constants/theme';
@@ -11,16 +12,18 @@ export default function GarageScreen() {
   const [mileage, setMileage] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      const p = await getProfile();
-      setProfile(p);
-      setMileage(p.currentOdometer || '');
-      const log = await getGarageLog();
-      setGarageLog(log);
-    };
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        const p = await getProfile();
+        setProfile(p);
+        setMileage(p.currentOdometer || '');
+        const log = await getGarageLog();
+        setGarageLog(log);
+      };
+      loadData();
+    }, [])
+  );
 
   const handleSaveRecord = async () => {
     if (serviceType.trim() === '' || mileage.trim() === '') return;

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { getProfile, saveProfile, getRideDiary } from '../utils/storage';
 import { COLORS, globalStyles } from '../constants/theme';
@@ -10,33 +11,35 @@ export default function BikerScreen() {
   const [editData, setEditData] = useState({});
   const [stats, setStats] = useState({ totalDist: 0, topSpeed: 0, totalRides: 0 });
 
-  useEffect(() => {
-    const loadData = async () => {
-      const data = await getProfile();
-      setProfile(data);
-      setEditData(data);
-      
-      const diaryData = await getRideDiary();
-      let totalDist = 0;
-      let topSpeed = 0;
-      
-      diaryData.forEach(ride => {
-        const dist = parseFloat(ride.distance) || 0;
-        const speed = parseFloat(ride.topSpeed) || 0;
-        totalDist += dist;
-        if (speed > topSpeed) {
-          topSpeed = speed;
-        }
-      });
-      
-      setStats({
-        totalRides: diaryData.length,
-        totalDist: parseFloat(totalDist.toFixed(1)),
-        topSpeed: topSpeed
-      });
-    };
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        const data = await getProfile();
+        setProfile(data);
+        setEditData(data);
+        
+        const diaryData = await getRideDiary();
+        let totalDist = 0;
+        let topSpeed = 0;
+        
+        diaryData.forEach(ride => {
+          const dist = parseFloat(ride.distance) || 0;
+          const speed = parseFloat(ride.topSpeed) || 0;
+          totalDist += dist;
+          if (speed > topSpeed) {
+            topSpeed = speed;
+          }
+        });
+        
+        setStats({
+          totalRides: diaryData.length,
+          totalDist: parseFloat(totalDist.toFixed(1)),
+          topSpeed: topSpeed
+        });
+      };
+      loadData();
+    }, [])
+  );
 
   if (!profile) {
     return (

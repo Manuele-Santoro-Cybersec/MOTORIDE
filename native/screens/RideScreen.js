@@ -59,9 +59,18 @@ export default function RideScreen() {
     
     const p = await getProfile();
     const currentOdo = parseFloat(p.currentOdometer || '0');
-    if (endOdometer > currentOdo) {
-      await saveProfile({ ...p, currentOdometer: endOdometer.toFixed(1) });
-    }
+    const newOdo = endOdometer > currentOdo ? endOdometer.toFixed(1) : p.currentOdometer;
+    
+    // Consumo carburante: ~22 miglia per litro
+    const fuelConsumed = currentDistance / 22;
+    let newFuel = parseFloat(p.currentFuel !== undefined ? p.currentFuel : 13) - fuelConsumed;
+    if (newFuel < 0) newFuel = 0;
+
+    await saveProfile({ 
+      ...p, 
+      currentOdometer: newOdo,
+      currentFuel: newFuel
+    });
     
     setCurrentDistance(0);
     setTopSpeed(0);
