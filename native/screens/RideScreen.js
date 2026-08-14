@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { getProfile, saveProfile, getRideDiary, saveRideDiary } from '../utils/storage';
+import { getRoute } from '../utils/routing';
 import { COLORS, globalStyles } from '../constants/theme';
 
 export default function RideScreen() {
@@ -20,6 +21,8 @@ export default function RideScreen() {
   const [stopLabel, setStopLabel] = useState('');
   const [tempStopCoord, setTempStopCoord] = useState(null);
   const lastCoord = useRef(null);
+  const locationRef = useRef(null);
+  const [routeData, setRouteData] = useState(null);
 
   const handleStartRide = async () => {
     const p = await getProfile();
@@ -146,6 +149,7 @@ export default function RideScreen() {
         { accuracy: Location.Accuracy.High },
         (loc) => {
           setLocation(loc.coords);
+          locationRef.current = loc.coords;
           
           if (isRecordingRef.current) {
             let speedMph = loc.coords.speed && loc.coords.speed > 0 ? loc.coords.speed * 2.23694 : 0;
@@ -174,6 +178,36 @@ export default function RideScreen() {
       }
     };
   }, []);
+
+  const hasLocation = !!location;
+  useEffect(() => {
+    if (plannedStops.length === 0) {
+      setRouteData(null);
+      return;
+    }
+    if (!locationRef.current) {
+      setRouteData({ error: 'Waiting for GPS...' });
+      return;
+    }
+
+    let isSubscribed = true;
+
+    const calculateRoute = async () => {
+      setRouteData(prev => prev ? { ...prev, loading: true } : { loading: true });
+      const coords = [
+        { latitude: locationRef.current.latitude, longitude: locationRef.current.longitude },
+        ...plannedStops.map(s => ({ latitude: s.latitude, longitude: s.longitude }))
+      ];
+      const result = await getRoute(coords);
+      if (isSubscribed) {
+        setRouteData(result);
+      }
+    };
+
+    calculateRoute();
+
+    return () => { isSubscribed = false; };
+  }, [plannedStops, hasLocation]);
 
   // Questa è la tab viva: la Mappa!
   return (
@@ -210,6 +244,14 @@ export default function RideScreen() {
             pinColor={COLORS.secondary}
           />
         ))}
+        {routeData && routeData.coordinates && routeData.coordinates.length > 0 && (
+          <Polyline 
+            coordinates={routeData.coordinates}
+            strokeColor={COLORS.success}
+            strokeWidth={4}
+            zIndex={1}
+          />
+        )}
       </MapView>
       
       {!isRecording && (
@@ -255,6 +297,20 @@ export default function RideScreen() {
               ))}
             </ScrollView>
           )}
+
+          <View style={styles.routeOptionsContainer}>
+            {plannedStops.length > 0 && (
+              <View style={styles.routeSummary}>
+                {routeData?.loading && !routeData?.coordinates && <Text style={styles.routeSummaryText}>Calculating route...</Text>}
+                {routeData?.error && <Text style={styles.routeSummaryText}>{routeData.error}</Text>}
+                {routeData?.coordinates && (
+                  <Text style={styles.routeSummaryText}>
+                    Total: {routeData.distanceMiles} mi • ~{routeData.durationMinutes} min {routeData.loading ? '(Updating...)' : ''}
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
         </View>
       )}
       
@@ -549,5 +605,23 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  routeOptionsContainer: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: 10,
+  },
+  routeSummary: {
+    marginTop: 5,
+    backgroundColor: COLORS.background,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  routeSummaryText: {
+    color: COLORS.success,
+    fontWeight: 'bold',
+    fontSize: 14,
   }
 });
