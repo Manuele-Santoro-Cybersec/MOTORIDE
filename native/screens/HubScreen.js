@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Linking, Share, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Linking, Share, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getCustomHubs, saveCustomHubs } from '../utils/storage';
 import { COLORS, globalStyles } from '../constants/theme';
@@ -47,40 +47,66 @@ export default function HubScreen({ navigation }) {
   const [customHubs, setCustomHubs] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [newGmaps, setNewGmaps] = useState('');
-  const [newCoords, setNewCoords] = useState('');
-  const [newDay, setNewDay] = useState(0);
+  const [newStartLoc, setNewStartLoc] = useState('');
+  const [newDays, setNewDays] = useState([]);
+  const [editingHubId, setEditingHubId] = useState(null);
 
   const handleSaveCustomHub = async () => {
-    if (!newTitle.trim() || !newGmaps.trim()) return;
-    
-    let lat = 0, lon = 0;
-    if (newCoords.includes(',')) {
-      const parts = newCoords.split(',');
-      lat = parseFloat(parts[0].trim());
-      lon = parseFloat(parts[1].trim());
+    if (!newTitle.trim()) return;
+
+    let updatedCustomHubs;
+
+    if (editingHubId) {
+      updatedCustomHubs = customHubs.map(h => 
+        h.id === editingHubId 
+          ? { ...h, title: newTitle, startLoc: newStartLoc, days: newDays } 
+          : h
+      );
+    } else {
+      const newHub = {
+        id: Date.now().toString(),
+        title: newTitle,
+        startLoc: newStartLoc, 
+        days: newDays,
+        lat: null,
+        lon: null,
+        destName: null,
+        isCustom: true
+      };
+      updatedCustomHubs = [...customHubs, newHub];
     }
 
-    const newHub = {
-      title: newTitle,
-      distance: newDescription || 'Custom Location', 
-      days: [newDay],
-      waze: newGmaps, 
-      gmaps: newGmaps,
-      lat: lat,
-      lon: lon
-    };
-
-    const updatedCustomHubs = [...customHubs, newHub];
     await saveCustomHubs(updatedCustomHubs);
     setCustomHubs(updatedCustomHubs);
     
     setNewTitle('');
-    setNewDescription('');
-    setNewGmaps('');
-    setNewCoords('');
+    setNewStartLoc('');
+    setNewDays([]);
+    setEditingHubId(null);
     setShowForm(false);
+  };
+
+  const handleEditCustomHub = (hub) => {
+    setNewTitle(hub.title);
+    setNewStartLoc(hub.startLoc);
+    setNewDays(hub.days || []);
+    setEditingHubId(hub.id);
+    setShowForm(true);
+  };
+
+  const handleDeleteCustomHub = (id) => {
+    Alert.alert('Delete Event', 'Are you sure you want to delete this event?', [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Delete', 
+        style: 'destructive',
+        onPress: async () => {
+          const updated = customHubs.filter(h => h.id !== id);
+          await saveCustomHubs(updated);
+          setCustomHubs(updated);
+        }
+      }
+    ]);
   };
 
   useFocusEffect(
@@ -109,14 +135,22 @@ export default function HubScreen({ navigation }) {
     <ScrollView style={globalStyles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Smart Hub 🍻</Text>
-        <TouchableOpacity style={styles.addHubBtn} onPress={() => setShowForm(!showForm)}>
+        <TouchableOpacity style={styles.addHubBtn} onPress={() => {
+          if (showForm) {
+            setEditingHubId(null);
+            setNewTitle('');
+            setNewStartLoc('');
+            setNewDays([]);
+          }
+          setShowForm(!showForm);
+        }}>
           <Text style={styles.addHubBtnText}>{showForm ? 'Cancel' : '+ Personal Hub'}</Text>
         </TouchableOpacity>
       </View>
 
       {showForm && (
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Add Personal Hub</Text>
+          <Text style={styles.formTitle}>{editingHubId ? 'Edit Personal Hub' : 'Add Personal Hub'}</Text>
           <TextInput 
             style={styles.input} 
             placeholder="Title (e.g. My Secret Spot)" 
@@ -126,35 +160,27 @@ export default function HubScreen({ navigation }) {
           />
           <TextInput 
             style={styles.input} 
-            placeholder="Description (e.g. Scenic Overlook)" 
+            placeholder="Start Location (e.g. Central Square)" 
             placeholderTextColor={COLORS.textMuted}
-            value={newDescription}
-            onChangeText={setNewDescription}
-          />
-          <TextInput 
-            style={styles.input} 
-            placeholder="G-Maps URL" 
-            placeholderTextColor={COLORS.textMuted}
-            value={newGmaps}
-            onChangeText={setNewGmaps}
-          />
-          <TextInput 
-            style={styles.input} 
-            placeholder="Coords (e.g. 51.5, -0.1) Optional" 
-            placeholderTextColor={COLORS.textMuted}
-            value={newCoords}
-            onChangeText={setNewCoords}
+            value={newStartLoc}
+            onChangeText={setNewStartLoc}
           />
           
-          <Text style={styles.dayLabel}>Active Day:</Text>
+          <Text style={styles.dayLabel}>Active Days:</Text>
           <View style={styles.daysRow}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
               <TouchableOpacity 
                 key={i} 
-                style={[styles.dayBadge, newDay === i && styles.dayBadgeActive]}
-                onPress={() => setNewDay(i)}
+                style={[styles.dayBadge, newDays.includes(i) && styles.dayBadgeActive]}
+                onPress={() => {
+                  if (newDays.includes(i)) {
+                    setNewDays(newDays.filter(d => d !== i));
+                  } else {
+                    setNewDays([...newDays, i]);
+                  }
+                }}
               >
-                <Text style={[styles.dayText, newDay === i && styles.dayTextActive]}>{day}</Text>
+                <Text style={[styles.dayText, newDays.includes(i) && styles.dayTextActive]}>{day}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -174,24 +200,45 @@ export default function HubScreen({ navigation }) {
         return (
           <View key={index} style={[styles.hubCard, { borderLeftColor: borderColor }]}>
             <View style={styles.hubHeader}>
-              <Text style={styles.hubTitle}>{hub.title}</Text>
-              <Text style={[styles.badge, { color: badgeColor }]}>{badgeText}</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                <Text style={styles.hubTitle}>{hub.title}</Text>
+                <Text style={[styles.badge, { color: badgeColor }]}>{badgeText}</Text>
+              </View>
+              {hub.isCustom && (
+                <View style={{flexDirection: 'row'}}>
+                  <TouchableOpacity onPress={() => handleEditCustomHub(hub)} style={{marginRight: 10}}>
+                    <Text style={{fontSize: 16}}>✏️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDeleteCustomHub(hub.id)}>
+                    <Text style={{fontSize: 16}}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
             <Text style={styles.hubDistance}>
-              {typeof hub.distance === 'number' ? `${hub.distance} mi away` : hub.distance}
+              {hub.isCustom ? `Start: ${hub.startLoc}` : `${hub.distance} mi away`}
             </Text>
             
             <View style={styles.actionRow}>
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => navigation.navigate('Ride', { hubToRoute: hub })}
-              >
-                <Text style={styles.actionButtonText}>Ride</Text>
-              </TouchableOpacity>
+              {hub.isCustom && !hub.lat ? (
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={() => navigation.navigate('Ride', { attachToHubId: hub.id })}
+                >
+                  <Text style={styles.actionButtonText}>📍 Plan Route</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={() => navigation.navigate('Ride', { hubToRoute: hub })}
+                >
+                  <Text style={styles.actionButtonText}>Ride</Text>
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity 
                 style={styles.shareButton} 
-                onPress={() => Share.share({ message: `Join me at ${hub.title} for a ride! Destination: ${hub.gmaps}` })}
+                onPress={() => Share.share({ message: `🏍️ *RIDE CALL: ${hub.title}*\n📍 *Start:* ${hub.startLoc || 'See Map'}\n🏁 *Destination:* ${hub.destName || 'TBD'}\n\nRSVP: Reply to this message with 👍 if you're in!` })}
               >
                 <Text style={styles.shareButtonText}>Share / RSVP</Text>
               </TouchableOpacity>
@@ -316,7 +363,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 18,
     fontWeight: 'bold',
-    flex: 1,
   },
   badge: {
     fontSize: 12,

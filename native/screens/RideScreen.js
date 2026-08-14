@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import { getProfile, saveProfile, getRideDiary, saveRideDiary } from '../utils/storage';
+import { getProfile, saveProfile, getRideDiary, saveRideDiary, getCustomHubs, saveCustomHubs } from '../utils/storage';
 import { getRoute } from '../utils/routing';
 import { COLORS, globalStyles } from '../constants/theme';
 
-export default function RideScreen({ route }) {
+export default function RideScreen({ route, navigation }) {
   const [location, setLocation] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
@@ -15,8 +15,16 @@ export default function RideScreen({ route }) {
   const [topSpeed, setTopSpeed] = useState(0);
   const [stops, setStops] = useState([]);
   const [plannedStops, setPlannedStops] = useState([]);
+  const [distance, setDistance] = useState(0);
+  const [attachHubId, setAttachHubId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+
+  useEffect(() => {
+    if (route?.params?.attachToHubId) {
+      setAttachHubId(route.params.attachToHubId);
+    }
+  }, [route?.params?.attachToHubId]);
   const [isStopModalVisible, setIsStopModalVisible] = useState(false);
   const [stopLabel, setStopLabel] = useState('');
   const [tempStopCoord, setTempStopCoord] = useState(null);
@@ -152,6 +160,28 @@ export default function RideScreen({ route }) {
       }
     }
   }, [route?.params?.hubToRoute]);
+
+  const handleAttachToEvent = async () => {
+    if (plannedStops.length === 0) return;
+    const destination = plannedStops[plannedStops.length - 1];
+    
+    const hubs = await getCustomHubs();
+    const updatedHubs = hubs.map(hub => {
+      if (hub.id === attachHubId) {
+        return {
+          ...hub,
+          lat: destination.latitude,
+          lon: destination.longitude,
+          destName: destination.label
+        };
+      }
+      return hub;
+    });
+    
+    await saveCustomHubs(updatedHubs);
+    setAttachHubId(null);
+    navigation.goBack();
+  };
 
   const haversineDistance = (lat1, lon1, lat2, lon2) => {
     const R = 3958.8; // Earth radius in miles
@@ -338,6 +368,11 @@ export default function RideScreen({ route }) {
                 )}
               </View>
             )}
+            {attachHubId && plannedStops.length > 0 && (
+              <TouchableOpacity style={styles.attachButton} onPress={handleAttachToEvent}>
+                <Text style={styles.attachButtonText}>✅ Attach Route to Event</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -433,6 +468,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     maxHeight: '60%',
   },
+
   planTitle: {
     color: COLORS.text,
     fontSize: 18,
@@ -651,5 +687,17 @@ const styles = StyleSheet.create({
     color: COLORS.success,
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  attachButton: {
+    backgroundColor: COLORS.primary,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  attachButtonText: {
+    color: COLORS.text,
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });
