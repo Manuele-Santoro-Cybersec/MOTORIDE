@@ -73,7 +73,27 @@ export default function StatsScreen() {
 
   return (
     <ScrollView style={globalStyles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Top Section: Fuel Level */}
+      {/* Top Section: Stats Grid */}
+      <View style={styles.statsGrid}>
+        <View style={styles.statSquare}>
+          <Text style={styles.statSquareTitle}>TOTAL RIDES</Text>
+          <Text style={styles.statSquareValue}>{stats.totalRides}</Text>
+        </View>
+        <View style={styles.statSquare}>
+          <Text style={styles.statSquareTitle}>TOTAL DISTANCE</Text>
+          <Text style={styles.statSquareValue}>{stats.totalDistance} mi</Text>
+        </View>
+        <View style={styles.statSquare}>
+          <Text style={styles.statSquareTitle}>TOP SPEED</Text>
+          <Text style={styles.statSquareValue}>{stats.topSpeed} mph</Text>
+        </View>
+        <View style={styles.statSquare}>
+          <Text style={styles.statSquareTitle}>LONGEST RIDE</Text>
+          <Text style={styles.statSquareValue}>{stats.longestRide} mi</Text>
+        </View>
+      </View>
+
+      {/* Bottom Section: Fuel Level */}
       <View style={styles.fuelCard}>
         <View style={styles.fuelHeaderRow}>
           <Text style={styles.fuelTitle}>FUEL LEVEL</Text>
@@ -92,26 +112,6 @@ export default function StatsScreen() {
           <TouchableOpacity style={styles.fillUpBtn} onPress={fillUp}>
             <Text style={styles.fillUpText}>FILL UP</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Bottom Section: Stats Grid */}
-      <View style={styles.statsGrid}>
-        <View style={styles.statSquare}>
-          <Text style={styles.statSquareTitle}>TOTAL RIDES</Text>
-          <Text style={styles.statSquareValue}>{stats.totalRides}</Text>
-        </View>
-        <View style={styles.statSquare}>
-          <Text style={styles.statSquareTitle}>TOTAL DISTANCE</Text>
-          <Text style={styles.statSquareValue}>{stats.totalDistance} mi</Text>
-        </View>
-        <View style={styles.statSquare}>
-          <Text style={styles.statSquareTitle}>TOP SPEED</Text>
-          <Text style={styles.statSquareValue}>{stats.topSpeed} mph</Text>
-        </View>
-        <View style={styles.statSquare}>
-          <Text style={styles.statSquareTitle}>LONGEST RIDE</Text>
-          <Text style={styles.statSquareValue}>{stats.longestRide} mi</Text>
         </View>
       </View>
     </ScrollView>

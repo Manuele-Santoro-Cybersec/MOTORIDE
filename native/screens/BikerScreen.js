@@ -1,15 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Image, TextInput, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { getProfile, saveProfile, getRideDiary } from '../utils/storage';
+import * as Location from 'expo-location';
+import { getProfile, saveProfile } from '../utils/storage';
 import { COLORS, globalStyles } from '../constants/theme';
+import { UK_BIKES } from '../constants/bikes';
 
 export default function BikerScreen() {
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
-  const [stats, setStats] = useState({ totalDist: 0, topSpeed: 0, totalRides: 0 });
+  const [bikeModalVisible, setBikeModalVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -17,25 +19,6 @@ export default function BikerScreen() {
         const data = await getProfile();
         setProfile(data);
         setEditData(data);
-        
-        const diaryData = await getRideDiary();
-        let totalDist = 0;
-        let topSpeed = 0;
-        
-        diaryData.forEach(ride => {
-          const dist = parseFloat(ride.distance) || 0;
-          const speed = parseFloat(ride.topSpeed) || 0;
-          totalDist += dist;
-          if (speed > topSpeed) {
-            topSpeed = speed;
-          }
-        });
-        
-        setStats({
-          totalRides: diaryData.length,
-          totalDist: parseFloat(totalDist.toFixed(1)),
-          topSpeed: topSpeed
-        });
       };
       loadData();
     }, [])
@@ -51,12 +34,50 @@ export default function BikerScreen() {
 
   const handleEditToggle = async () => {
     if (isEditing) {
-      await saveProfile(editData);
-      setProfile(editData);
+      let finalData = { ...editData };
+      if (finalData.homeBase && !finalData.homeLat) {
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(finalData.homeBase)}&limit=1`, {
+            headers: { 'User-Agent': 'MotorideApp/1.0' }
+          });
+          const geodata = await response.json();
+          if (geodata && geodata.length > 0) {
+            finalData.homeLat = parseFloat(geodata[0].lat);
+            finalData.homeLon = parseFloat(geodata[0].lon);
+          }
+        } catch (e) {
+          console.log('Forward geocoding failed', e);
+        }
+      }
+      await saveProfile(finalData);
+      setProfile(finalData);
     } else {
       setEditData(profile);
+      const matchIndex = UK_BIKES.findIndex(b => `${b.make} ${b.model}` === profile.bike);
+      if (matchIndex !== -1) {
+        setEditData(prev => ({ ...prev, bikePicker: matchIndex.toString() }));
+      } else {
+        setEditData(prev => ({ ...prev, bikePicker: 'Other' }));
+      }
     }
     setIsEditing(!isEditing);
+  };
+
+  const handleBikeChange = (itemValue) => {
+    if (itemValue === 'Other') {
+      setEditData({ ...editData, bikePicker: 'Other', bike: '', mpg: '', tank: '' });
+    } else {
+      const selected = UK_BIKES[parseInt(itemValue)];
+      if (selected) {
+        setEditData({ 
+          ...editData, 
+          bikePicker: itemValue,
+          bike: `${selected.make} ${selected.model}`, 
+          mpg: selected.avgMpg.toString(), 
+          tank: selected.tankLiters.toString() 
+        });
+      }
+    }
   };
 
   const pickImage = async () => {
@@ -73,7 +94,37 @@ export default function BikerScreen() {
   };
 
   const handleChange = (field, value) => {
-    setEditData({ ...editData, [field]: value });
+    if (field === 'homeBase') {
+      setEditData({ ...editData, [field]: value, homeLat: null, homeLon: null });
+    } else {
+      setEditData({ ...editData, [field]: value });
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permission to access location was denied');
+        return;
+      }
+      let loc = await Location.getCurrentPositionAsync({});
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.coords.latitude}&lon=${loc.coords.longitude}`, {
+        headers: {
+          'User-Agent': 'MotorideApp/1.0'
+        }
+      });
+      const data = await response.json();
+      const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || 'Unknown Location';
+      setEditData({ 
+        ...editData, 
+        homeBase: city, 
+        homeLat: loc.coords.latitude, 
+        homeLon: loc.coords.longitude 
+      });
+    } catch (e) {
+      alert('Could not fetch location via Nominatim');
+    }
   };
 
   const getDaysRemaining = (dateString) => {
@@ -93,14 +144,14 @@ export default function BikerScreen() {
     if (days === null || isNaN(days)) return <Text style={styles.statusText}>{dateString}</Text>;
 
     let color = COLORS.success; // success
-    let text = `Valido (${days}g)`;
+    let text = `Valid (${days}d)`;
 
     if (days < 0) {
       color = COLORS.danger; // danger
-      text = 'SCADUTO';
+      text = 'EXPIRED';
     } else if (days <= 30) {
       color = COLORS.primary; // warning
-      text = `In scadenza (${days}g)`;
+      text = `Expiring (${days}d)`;
     }
 
     return (
@@ -155,19 +206,86 @@ export default function BikerScreen() {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>🏠 Home Base / Start Loc</Text>
+        {isEditing ? (
+          <View>
+            <TextInput 
+              style={styles.inputMount} 
+              value={editData.homeBase} 
+              onChangeText={(text) => handleChange('homeBase', text)}
+              placeholder="City, Area or Postcode"
+              placeholderTextColor={COLORS.textMuted}
+            />
+            <TouchableOpacity style={styles.locationBtn} onPress={handleUseCurrentLocation}>
+              <Text style={styles.locationBtnText}>📍 Use Current Location</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <Text style={styles.mountText}>{profile.homeBase || 'Not set'}</Text>
+        )}
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.cardTitle}>🏍️ Current Mount</Text>
         {isEditing ? (
-          <TextInput 
-            style={styles.inputMount} 
-            value={editData.bike} 
-            onChangeText={(text) => handleChange('bike', text)}
-            placeholder="Bike Model"
-            placeholderTextColor={COLORS.textMuted}
-          />
+          <View>
+            <TouchableOpacity 
+              style={{ backgroundColor: COLORS.background, borderRadius: 8, marginBottom: 10, padding: 15 }}
+              onPress={() => setBikeModalVisible(true)}
+            >
+              <Text style={{ color: COLORS.text }}>
+                {editData.bikePicker === 'Other' 
+                  ? 'Other / Not Listed' 
+                  : (editData.bikePicker ? `${UK_BIKES[parseInt(editData.bikePicker)]?.make} ${UK_BIKES[parseInt(editData.bikePicker)]?.model}` : 'Select a bike...')}
+              </Text>
+            </TouchableOpacity>
+            {editData.bikePicker === 'Other' && (
+              <TextInput 
+                style={styles.inputMount} 
+                value={editData.bike} 
+                onChangeText={(text) => handleChange('bike', text)}
+                placeholder="Make and Model"
+                placeholderTextColor={COLORS.textMuted}
+              />
+            )}
+          </View>
         ) : (
-          <Text style={styles.mountText}>{profile.bike}</Text>
+          <Text style={styles.mountText}>{profile.bike || 'Not set'}</Text>
         )}
         
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 15}}>
+          <View style={{flex: 1, marginRight: 10}}>
+            <Text style={styles.statLabel}>Avg MPG</Text>
+            {isEditing ? (
+              <TextInput 
+                style={styles.inputSmall} 
+                value={editData.mpg} 
+                onChangeText={(text) => handleChange('mpg', text)}
+                keyboardType="numeric"
+                placeholder="22"
+                placeholderTextColor={COLORS.textMuted}
+              />
+            ) : (
+              <Text style={styles.statusText}>{profile.mpg || '22'}</Text>
+            )}
+          </View>
+          <View style={{flex: 1}}>
+            <Text style={styles.statLabel}>Tank Size (L)</Text>
+            {isEditing ? (
+              <TextInput 
+                style={styles.inputSmall} 
+                value={editData.tank} 
+                onChangeText={(text) => handleChange('tank', text)}
+                keyboardType="numeric"
+                placeholder="13"
+                placeholderTextColor={COLORS.textMuted}
+              />
+            ) : (
+              <Text style={styles.statusText}>{profile.tank || '13'}</Text>
+            )}
+          </View>
+        </View>
+
         <View style={styles.odometerContainer}>
           <Text style={styles.statLabel}>Current Odometer (mi)</Text>
           {isEditing ? (
@@ -234,24 +352,44 @@ export default function BikerScreen() {
         <Text style={styles.statusText}>Full Cat A: {profile.catA}</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>📊 Lifetime Stats</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statBlock}>
-            <Text style={styles.statLabelCenter}>Total Dist</Text>
-            <Text style={styles.statValue}>{stats.totalDist} mi</Text>
-          </View>
-          <View style={styles.statBlock}>
-            <Text style={styles.statLabelCenter}>Top Speed</Text>
-            <Text style={styles.statValue}>{stats.topSpeed} mph</Text>
-          </View>
-          <View style={styles.statBlock}>
-            <Text style={styles.statLabelCenter}>Total Rides</Text>
-            <Text style={styles.statValue}>{stats.totalRides}</Text>
+      <View style={{ height: 40 }} />
+
+      <Modal visible={bikeModalVisible} transparent={true} animationType="slide">
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: COLORS.card, padding: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '70%' }}>
+            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: 'bold', marginBottom: 15 }}>Select a Mount</Text>
+            <ScrollView>
+              {UK_BIKES.map((b, i) => (
+                <TouchableOpacity 
+                  key={i} 
+                  style={{ paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.border }}
+                  onPress={() => {
+                    handleBikeChange(i.toString());
+                    setBikeModalVisible(false);
+                  }}
+                >
+                  <Text style={{ color: COLORS.text, fontSize: 16 }}>{`${b.make} ${b.model}`}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity 
+                style={{ paddingVertical: 15 }}
+                onPress={() => {
+                  handleBikeChange('Other');
+                  setBikeModalVisible(false);
+                }}
+              >
+                <Text style={{ color: COLORS.text, fontSize: 16 }}>Other / Not Listed</Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <TouchableOpacity 
+              style={{ marginTop: 15, backgroundColor: COLORS.background, padding: 15, borderRadius: 8, alignItems: 'center' }}
+              onPress={() => setBikeModalVisible(false)}
+            >
+              <Text style={{ color: COLORS.text, fontWeight: 'bold' }}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
-      <View style={{ height: 40 }} />
+      </Modal>
     </ScrollView>
   );
 }
@@ -354,6 +492,21 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
     paddingVertical: 4,
   },
+  locationBtn: {
+    marginTop: 10,
+    backgroundColor: COLORS.background,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignSelf: 'flex-start',
+  },
+  locationBtnText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   odometerContainer: {
     marginTop: 15,
   },
@@ -370,29 +523,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 6,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 5,
-  },
-  statBlock: {
-    alignItems: 'center',
-    flex: 1,
-  },
   statLabel: {
     color: COLORS.textMuted,
     fontSize: 12,
     marginBottom: 4,
-  },
-  statLabelCenter: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  statValue: {
-    color: COLORS.secondary,
-    fontSize: 18,
-    fontWeight: 'bold',
   },
 });

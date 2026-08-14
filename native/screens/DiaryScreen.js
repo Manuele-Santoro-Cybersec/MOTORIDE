@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { getRideDiary, saveRideDiary } from '../utils/storage';
 import { COLORS, globalStyles } from '../constants/theme';
 
-export default function DiaryScreen() {
+export default function DiaryScreen({ navigation }) {
   const [diary, setDiary] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
@@ -236,6 +236,20 @@ export default function DiaryScreen() {
               {ride.notes ? <Text style={styles.rideNotes}>{ride.notes}</Text> : null}
             </View>
             <View style={styles.cardActions}>
+              <TouchableOpacity onPress={() => {
+                const startNode = ride.stops && ride.stops.length > 0 ? ride.stops[0].label : '';
+                const destNode = ride.stops && ride.stops.length > 1 ? ride.stops[ride.stops.length - 1].label : '';
+                navigation.navigate('Hub', {
+                  prefillHub: {
+                    title: ride.title,
+                    startLoc: startNode,
+                    destName: destNode,
+                    isSavedRoute: true
+                  }
+                });
+              }} style={styles.actionButton}>
+                <Text style={styles.hubActionText}>📌 Save as Hub Route</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => editRide(index)} style={styles.actionButton}>
                 <Text style={styles.editActionText}>✏️ Edit</Text>
               </TouchableOpacity>
@@ -277,6 +291,17 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  rideCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   formCard: {
     backgroundColor: COLORS.card,
@@ -470,6 +495,12 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  hubActionText: {
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 8,
   },
   noHistoryText: {
     color: COLORS.textMuted,

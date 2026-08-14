@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import StatsScreen from './screens/StatsScreen';
 import HubScreen from './screens/HubScreen';
 import DiaryScreen from './screens/DiaryScreen';
@@ -40,8 +40,8 @@ export default function App() {
           tabBarActiveTintColor: '#e63946', 
           tabBarInactiveTintColor: 'gray',
           tabBarStyle: { 
-            paddingBottom: 5, 
-            height: 60, 
+            paddingBottom: Platform.OS === 'android' ? 20 : 0, 
+            height: Platform.OS === 'android' ? 70 : 60, 
             backgroundColor: '#1a1a1a', 
             borderTopColor: '#333' 
           },
