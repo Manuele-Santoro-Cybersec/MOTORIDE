@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView, Switch } from 'react-native';
 import * as Location from 'expo-location';
+import * as DocumentPicker from 'expo-document-picker';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { getProfile, saveProfile, getRideDiary, saveRideDiary, getCustomHubs, saveCustomHubs } from '../utils/storage';
 import { getRoute } from '../utils/routing';
@@ -30,8 +31,31 @@ export default function RideScreen({ route, navigation }) {
   const [tempStopCoord, setTempStopCoord] = useState(null);
   const lastCoord = useRef(null);
   const locationRef = useRef(null);
+  const mapRef = useRef(null);
   const [routeData, setRouteData] = useState(null);
   const [avoidMotorways, setAvoidMotorways] = useState(false);
+
+  const handleSaveTodoRide = async () => {
+    if (plannedStops.length === 0) return;
+    
+    const diary = await getRideDiary();
+    
+    const newRide = {
+      id: Date.now().toString(),
+      title: `Planned Route - ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
+      distance: routeData && routeData.distanceMiles ? parseFloat(routeData.distanceMiles) : 0,
+      topSpeed: 0,
+      notes: '',
+      date: new Date().toLocaleDateString(),
+      type: 'TODO',
+      stops: [...plannedStops]
+    };
+    
+    await saveRideDiary([newRide, ...diary]);
+    setPlannedStops([]);
+    setRouteData(null);
+    alert('Route saved to diary as To-Do!');
+  };
 
   const handleStartRide = async () => {
     const p = await getProfile();
@@ -145,10 +169,30 @@ export default function RideScreen({ route, navigation }) {
     setPlannedStops(prev => prev.filter(s => s.id !== id));
   };
 
+  const movePlannedStop = (index, direction) => {
+    setPlannedStops(prev => {
+      if (index + direction < 0 || index + direction >= prev.length) return prev;
+      const newStops = [...prev];
+      const temp = newStops[index];
+      newStops[index] = newStops[index + direction];
+      newStops[index + direction] = temp;
+      return newStops;
+    });
+  };
+
   useEffect(() => {
     if (route?.params?.hubToRoute) {
       const hub = route.params.hubToRoute;
-      if (hub.lat && hub.lon) {
+      if (hub.waypoints && hub.waypoints.length > 0) {
+        const waypointsList = hub.waypoints.map((wp, i) => ({
+          id: Date.now().toString() + i,
+          latitude: parseFloat(wp.lat),
+          longitude: parseFloat(wp.lon),
+          label: `Waypoint ${i + 1}`,
+          type: 'planned'
+        }));
+        setPlannedStops(waypointsList);
+      } else if (hub.lat && hub.lon) {
         setPlannedStops(prev => {
           if (prev.some(s => s.label === hub.title)) return prev;
           const newStop = {
@@ -274,9 +318,10 @@ export default function RideScreen({ route, navigation }) {
   return (
     <View style={globalStyles.container}>
       <MapView 
+        ref={mapRef}
         style={styles.map} 
         showsUserLocation={true}
-        region={location ? {
+        initialRegion={location ? {
           latitude: location.latitude,
           longitude: location.longitude,
           latitudeDelta: 0.05,
@@ -351,9 +396,23 @@ export default function RideScreen({ route, navigation }) {
               {plannedStops.map((stop, index) => (
                 <View key={stop.id} style={styles.plannedStopRow}>
                   <Text style={styles.plannedStopText} numberOfLines={1}>{index + 1}. {stop.label}</Text>
-                  <TouchableOpacity onPress={() => removePlannedStop(stop.id)}>
-                    <Text style={styles.plannedStopRemove}>❌</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {index > 0 ? (
+                      <TouchableOpacity onPress={() => movePlannedStop(index, -1)} style={{ paddingHorizontal: 5 }}>
+                        <Text>⬆️</Text>
+                      </TouchableOpacity>
+                    ) : <View style={{ width: 28 }} />}
+                    
+                    {index < plannedStops.length - 1 ? (
+                      <TouchableOpacity onPress={() => movePlannedStop(index, 1)} style={{ paddingHorizontal: 5, marginRight: 10 }}>
+                        <Text>⬇️</Text>
+                      </TouchableOpacity>
+                    ) : <View style={{ width: 38 }} />}
+                    
+                    <TouchableOpacity onPress={() => removePlannedStop(stop.id)}>
+                      <Text style={styles.plannedStopRemove}>❌</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </ScrollView>
@@ -384,6 +443,11 @@ export default function RideScreen({ route, navigation }) {
             {attachHubId && plannedStops.length > 0 && (
               <TouchableOpacity style={styles.attachButton} onPress={handleAttachToEvent}>
                 <Text style={styles.attachButtonText}>✅ Attach Route to Event</Text>
+              </TouchableOpacity>
+            )}
+            {!attachHubId && plannedStops.length > 0 && (
+              <TouchableOpacity style={styles.attachButton} onPress={handleSaveTodoRide}>
+                <Text style={styles.attachButtonText}>📝 Save as To-Do Ride</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -449,6 +513,37 @@ export default function RideScreen({ route, navigation }) {
           </View>
         </View>
       </Modal>
+
+      <TouchableOpacity 
+        style={{
+          position: 'absolute', 
+          right: 20, 
+          bottom: isRecording ? 40 : 120, 
+          backgroundColor: COLORS.card, 
+          width: 50, 
+          height: 50, 
+          borderRadius: 25, 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          zIndex: 9999, 
+          elevation: 10, 
+          borderWidth: 2, 
+          borderColor: COLORS.primary
+        }}
+        onPress={() => {
+          if (locationRef.current) {
+            mapRef.current?.animateCamera({ 
+              center: { 
+                latitude: locationRef.current.latitude, 
+                longitude: locationRef.current.longitude 
+              }, 
+              zoom: 15 
+            });
+          }
+        }}
+      >
+        <Text style={{fontSize: 24}}>🎯</Text>
+      </TouchableOpacity>
     </View>
   );
 }

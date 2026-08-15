@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Linking, Share, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getCustomHubs, saveCustomHubs, getProfile } from '../utils/storage';
-
+import * as DocumentPicker from 'expo-document-picker';
 function getDistanceFromLatLonInMiles(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return 999;
   var R = 3958.8; // Radius of the earth in miles
@@ -150,6 +150,50 @@ export default function HubScreen({ route, navigation }) {
     ]);
   };
 
+  const handleImportGPX = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+      
+      const fileUri = result.assets[0].uri;
+      const response = await fetch(fileUri);
+      const fileText = await response.text();
+
+      const tagsMatch = fileText.match(/<(?:trkpt|wpt)[^>]+>/g) || [];
+      const extractedWaypoints = [];
+      tagsMatch.forEach(tag => {
+        const latMatch = tag.match(/lat="([^"]+)"/);
+        const lonMatch = tag.match(/lon="([^"]+)"/);
+        if (latMatch && lonMatch) {
+          extractedWaypoints.push({ lat: parseFloat(latMatch[1]), lon: parseFloat(lonMatch[1]) });
+        }
+      });
+
+      if (extractedWaypoints.length > 0) {
+        const newHub = {
+          id: Date.now().toString(),
+          title: 'Imported GPX Route',
+          isSavedRoute: true,
+          isCustom: true,
+          waypoints: extractedWaypoints,
+          days: [],
+          startLoc: 'Imported Start',
+          destName: 'Imported End'
+        };
+        const updatedCustomHubs = [...customHubs, newHub];
+        await saveCustomHubs(updatedCustomHubs);
+        setCustomHubs(updatedCustomHubs);
+        Alert.alert('Success', `Imported GPX route with ${extractedWaypoints.length} waypoints!`);
+      } else {
+        Alert.alert('Notice', 'No waypoints found in the selected GPX file.');
+      }
+      
+    } catch (error) {
+      console.error("Error importing GPX: ", error);
+      Alert.alert('Error', 'Failed to import GPX file.');
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       const loadHubs = async () => {
@@ -255,20 +299,25 @@ export default function HubScreen({ route, navigation }) {
     <ScrollView style={globalStyles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Smart Hub 🍻</Text>
-        <TouchableOpacity style={styles.addHubBtn} onPress={() => {
-          if (showForm) {
-            setEditingHubId(null);
-            setNewTitle('');
-            setNewStartLoc('');
-            setNewDestName('');
-            setNewDepartureTime('');
-            setNewDays([]);
-            setNewIsSavedRoute(false);
-          }
-          setShowForm(!showForm);
-        }}>
-          <Text style={styles.addHubBtnText}>{showForm ? 'Cancel' : '+ Personal Hub'}</Text>
-        </TouchableOpacity>
+        <View style={{flexDirection: 'row', gap: 10}}>
+          <TouchableOpacity style={styles.addHubBtn} onPress={handleImportGPX}>
+            <Text style={styles.addHubBtnText}>📂 Import GPX</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addHubBtn} onPress={() => {
+            if (showForm) {
+              setEditingHubId(null);
+              setNewTitle('');
+              setNewStartLoc('');
+              setNewDestName('');
+              setNewDepartureTime('');
+              setNewDays([]);
+              setNewIsSavedRoute(false);
+            }
+            setShowForm(!showForm);
+          }}>
+            <Text style={styles.addHubBtnText}>{showForm ? 'Cancel' : '+ Personal Hub'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {showForm && (
