@@ -267,7 +267,7 @@ export default function HubScreen({ route, navigation }) {
         <Text style={styles.hubDistance}>
           {hub.isCustom ? `Start: ${hub.startLoc}` : `${hub.distance} mi away`}
         </Text>
-        
+
         {hub.waypoints && hub.waypoints.length > 0 && (
           <>
             <TouchableOpacity 
@@ -290,9 +290,16 @@ export default function HubScreen({ route, navigation }) {
             )}
           </>
         )}
-
+        
         <View style={styles.actionRow}>
-          {hub.isCustom && !hub.lat ? (
+          {hub.isSavedRoute ? (
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => navigation.navigate('Ride', { hubToRoute: hub })}
+            >
+              <Text style={styles.actionButtonText}>📍 Load Route</Text>
+            </TouchableOpacity>
+          ) : hub.isCustom && !hub.lat ? (
             <TouchableOpacity 
               style={styles.actionButton} 
               onPress={() => navigation.navigate('Ride', { attachToHubId: hub.id })}
@@ -407,9 +414,16 @@ export default function HubScreen({ route, navigation }) {
       
       {sortedDefaultHubs.map(renderHubCard)}
       
-      <Text style={{color: COLORS.text, fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 10}}>My Custom Routes</Text>
+      <Text style={{ fontSize: 20, color: COLORS.text, fontWeight: 'bold', marginTop: 20, marginBottom: 10 }}>My Personal Hubs</Text>
       
-      {sortedCustomHubs.map(renderHubCard)}
+      {sortedCustomHubs.filter(h => !h.isSavedRoute).length > 0 
+        ? sortedCustomHubs.filter(h => !h.isSavedRoute).map(renderHubCard)
+        : <Text style={{ color: COLORS.textMuted }}>No personal hubs created.</Text>
+      }
+
+      <Text style={{ fontSize: 20, color: COLORS.text, fontWeight: 'bold', marginTop: 20, marginBottom: 10 }}>My Planned Rides (To-Do)</Text>
+      
+      {sortedCustomHubs.filter(h => h.isSavedRoute).map(renderHubCard)}
     </ScrollView>
   );
 }
