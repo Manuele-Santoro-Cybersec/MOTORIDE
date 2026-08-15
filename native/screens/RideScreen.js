@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView, Switch } from 'react-native';
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { getProfile, saveProfile, getRideDiary, saveRideDiary, getCustomHubs, saveCustomHubs } from '../utils/storage';
@@ -31,6 +31,7 @@ export default function RideScreen({ route, navigation }) {
   const lastCoord = useRef(null);
   const locationRef = useRef(null);
   const [routeData, setRouteData] = useState(null);
+  const [avoidMotorways, setAvoidMotorways] = useState(false);
 
   const handleStartRide = async () => {
     const p = await getProfile();
@@ -258,7 +259,7 @@ export default function RideScreen({ route, navigation }) {
         { latitude: locationRef.current.latitude, longitude: locationRef.current.longitude },
         ...plannedStops.map(s => ({ latitude: s.latitude, longitude: s.longitude }))
       ];
-      const result = await getRoute(coords);
+      const result = await getRoute(coords, avoidMotorways);
       if (isSubscribed) {
         setRouteData(result);
       }
@@ -267,7 +268,7 @@ export default function RideScreen({ route, navigation }) {
     calculateRoute();
 
     return () => { isSubscribed = false; };
-  }, [plannedStops, hasLocation]);
+  }, [plannedStops, hasLocation, avoidMotorways]);
 
   // Questa è la tab viva: la Mappa!
   return (
@@ -368,6 +369,16 @@ export default function RideScreen({ route, navigation }) {
                     Total: {routeData.distanceMiles} mi • ~{routeData.durationMinutes} min {routeData.loading ? '(Updating...)' : ''}
                   </Text>
                 )}
+              </View>
+            )}
+            {plannedStops.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 10 }}>
+                <Text style={{ color: COLORS.text, fontSize: 14 }}>Avoid Motorways</Text>
+                <Switch
+                  value={avoidMotorways}
+                  onValueChange={setAvoidMotorways}
+                  trackColor={{ false: COLORS.border, true: COLORS.success }}
+                />
               </View>
             )}
             {attachHubId && plannedStops.length > 0 && (
