@@ -72,6 +72,7 @@ export default function HubScreen({ route, navigation }) {
   const [newDays, setNewDays] = useState([]);
   const [editingHubId, setEditingHubId] = useState(null);
   const [newIsSavedRoute, setNewIsSavedRoute] = useState(false);
+  const [expandedHubId, setExpandedHubId] = useState(null);
 
   useEffect(() => {
     if (route?.params?.prefillHub) {
@@ -267,6 +268,29 @@ export default function HubScreen({ route, navigation }) {
           {hub.isCustom ? `Start: ${hub.startLoc}` : `${hub.distance} mi away`}
         </Text>
         
+        {hub.waypoints && hub.waypoints.length > 0 && (
+          <>
+            <TouchableOpacity 
+              style={{ marginTop: 5, marginBottom: 10 }}
+              onPress={() => setExpandedHubId(expandedHubId === hub.id ? null : hub.id)}
+            >
+              <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>
+                🚏 {hub.waypoints.length} Stops {expandedHubId === hub.id ? '(Hide)' : '(Tap to view)'}
+              </Text>
+            </TouchableOpacity>
+            
+            {expandedHubId === hub.id && (
+              <View style={{ backgroundColor: COLORS.background, borderRadius: 8, padding: 10, marginBottom: 10 }}>
+                {hub.waypoints.map((wp, i) => (
+                  <Text key={i} numberOfLines={1} style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 4 }}>
+                    {i + 1}. {wp.label}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </>
+        )}
+
         <View style={styles.actionRow}>
           {hub.isCustom && !hub.lat ? (
             <TouchableOpacity 
