@@ -14,7 +14,8 @@ export default function StatsScreen() {
 
   const [fuel, setFuel] = useState({
     currentLiters: 13,
-    maxLiters: 13
+    maxLiters: 13,
+    mpg: 22
   });
 
   const loadData = async () => {
@@ -41,8 +42,10 @@ export default function StatsScreen() {
     });
 
     const profile = await getProfile();
-    const currentFuel = profile.currentFuel !== undefined ? parseFloat(profile.currentFuel) : 13;
-    setFuel(prev => ({ ...prev, currentLiters: currentFuel }));
+    const userTank = parseFloat(profile.tank) || 13;
+    const userMpg = parseFloat(profile.mpg) || 22;
+    const currentFuel = profile.currentFuel !== undefined ? parseFloat(profile.currentFuel) : userTank;
+    setFuel(prev => ({ ...prev, currentLiters: currentFuel, maxLiters: userTank, mpg: userMpg }));
   };
 
   useFocusEffect(
@@ -53,9 +56,9 @@ export default function StatsScreen() {
 
   const fillUp = async () => {
     const profile = await getProfile();
-    profile.currentFuel = 13;
+    profile.currentFuel = fuel.maxLiters;
     await saveProfile(profile);
-    setFuel(prev => ({ ...prev, currentLiters: 13 }));
+    setFuel(prev => ({ ...prev, currentLiters: fuel.maxLiters }));
   };
 
   const addLiters = async () => {
@@ -68,7 +71,7 @@ export default function StatsScreen() {
     setFuel(prev => ({ ...prev, currentLiters: newFuel }));
   };
 
-  const range = Math.round(fuel.currentLiters * 22);
+  const range = Math.round(fuel.currentLiters * fuel.mpg);
   const fuelPercentage = (fuel.currentLiters / fuel.maxLiters) * 100;
 
   return (

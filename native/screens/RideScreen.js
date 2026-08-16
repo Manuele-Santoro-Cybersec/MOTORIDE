@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView, Switch } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView, Switch, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import * as DocumentPicker from 'expo-document-picker';
 import MapView, { Marker, Polyline } from 'react-native-maps';
@@ -37,24 +37,21 @@ export default function RideScreen({ route, navigation }) {
 
   const handleSaveTodoRide = async () => {
     if (plannedStops.length === 0) return;
-    
-    const diary = await getRideDiary();
-    
-    const newRide = {
-      id: Date.now().toString(),
-      title: `Planned Route - ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
-      distance: routeData && routeData.distanceMiles ? parseFloat(routeData.distanceMiles) : 0,
-      topSpeed: 0,
-      notes: '',
-      date: new Date().toLocaleDateString(),
-      type: 'TODO',
-      stops: [...plannedStops]
+
+    const hubs = await getCustomHubs();
+    const newHub = { 
+      id: Date.now().toString(), 
+      title: 'Planned Route', 
+      isSavedRoute: true, 
+      isCustom: true, 
+      days: [], 
+      waypoints: [...plannedStops] 
     };
-    
-    await saveRideDiary([newRide, ...diary]);
+    await saveCustomHubs([...hubs, newHub]);
+
     setPlannedStops([]);
     setRouteData(null);
-    alert('Route saved to diary as To-Do!');
+    Alert.alert('Success', 'Route saved to your Hub as a To-Do Ride!');
   };
 
   const handleStartRide = async () => {
@@ -183,27 +180,40 @@ export default function RideScreen({ route, navigation }) {
   useEffect(() => {
     if (route?.params?.hubToRoute) {
       const hub = route.params.hubToRoute;
+      let waypointsList = [];
+
       if (hub.waypoints && hub.waypoints.length > 0) {
-        const waypointsList = hub.waypoints.map((wp, i) => ({
-          id: Date.now().toString() + i,
-          latitude: parseFloat(wp.lat),
-          longitude: parseFloat(wp.lon),
-          label: `Waypoint ${i + 1}`,
-          type: 'planned'
-        }));
-        setPlannedStops(waypointsList);
-      } else if (hub.lat && hub.lon) {
-        setPlannedStops(prev => {
-          if (prev.some(s => s.label === hub.title)) return prev;
-          const newStop = {
-            id: Date.now().toString(),
-            latitude: parseFloat(hub.lat),
-            longitude: parseFloat(hub.lon),
-            label: hub.title,
+        waypointsList = hub.waypoints.map((wp, index) => {
+          const lat = Number(wp.latitude || wp.lat);
+          const lon = Number(wp.longitude || wp.lon);
+          return {
+            id: wp.id || Date.now().toString() + index,
+            latitude: lat,
+            longitude: lon,
+            label: wp.label || wp.address || (lat.toFixed(4) + ', ' + lon.toFixed(4)),
             type: 'planned'
           };
-          return [...prev, newStop];
         });
+      } else if (hub.lat && hub.lon) {
+        const lat = Number(hub.lat);
+        const lon = Number(hub.lon);
+        waypointsList = [{
+          id: Date.now().toString(),
+          latitude: lat,
+          longitude: lon,
+          label: hub.title,
+          type: 'planned'
+        }];
+      }
+
+      if (waypointsList.length > 0) {
+        setPlannedStops(waypointsList);
+        setTimeout(() => {
+          mapRef.current?.fitToCoordinates(waypointsList, {
+            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+            animated: true
+          });
+        }, 500);
       }
     }
   }, [route?.params?.hubToRoute]);
@@ -306,6 +316,12 @@ export default function RideScreen({ route, navigation }) {
       const result = await getRoute(coords, avoidMotorways);
       if (isSubscribed) {
         setRouteData(result);
+        if (result && result.coordinates && result.coordinates.length > 0) {
+          mapRef.current?.fitToCoordinates(result.coordinates, {
+            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+            animated: true
+          });
+        }
       }
     };
 
@@ -321,17 +337,7 @@ export default function RideScreen({ route, navigation }) {
         ref={mapRef}
         style={styles.map} 
         showsUserLocation={true}
-        initialRegion={location ? {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        } : {
-          latitude: 51.4543,
-          longitude: -0.9781,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        }}
+        initialRegion={location ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 } : { latitude: 51.4543, longitude: -0.9781, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
       >
         {stops.map(stop => (
           <Marker
@@ -397,18 +403,18 @@ export default function RideScreen({ route, navigation }) {
                 <View key={stop.id} style={styles.plannedStopRow}>
                   <Text style={styles.plannedStopText} numberOfLines={1}>{index + 1}. {stop.label}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {index > 0 ? (
-                      <TouchableOpacity onPress={() => movePlannedStop(index, -1)} style={{ paddingHorizontal: 5 }}>
-                        <Text>⬆️</Text>
-                      </TouchableOpacity>
-                    ) : <View style={{ width: 28 }} />}
-                    
-                    {index < plannedStops.length - 1 ? (
-                      <TouchableOpacity onPress={() => movePlannedStop(index, 1)} style={{ paddingHorizontal: 5, marginRight: 10 }}>
-                        <Text>⬇️</Text>
-                      </TouchableOpacity>
-                    ) : <View style={{ width: 38 }} />}
-                    
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      {index > 0 && (
+                        <TouchableOpacity onPress={() => movePlannedStop(index, -1)} style={{ paddingHorizontal: 5 }}>
+                          <Text>⬆️</Text>
+                        </TouchableOpacity>
+                      )}
+                      {index < plannedStops.length - 1 && (
+                        <TouchableOpacity onPress={() => movePlannedStop(index, 1)} style={{ paddingHorizontal: 5, marginRight: 10 }}>
+                          <Text>⬇️</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <TouchableOpacity onPress={() => removePlannedStop(stop.id)}>
                       <Text style={styles.plannedStopRemove}>❌</Text>
                     </TouchableOpacity>
@@ -515,31 +521,9 @@ export default function RideScreen({ route, navigation }) {
       </Modal>
 
       <TouchableOpacity 
-        style={{
-          position: 'absolute', 
-          right: 20, 
-          bottom: isRecording ? 40 : 120, 
-          backgroundColor: COLORS.card, 
-          width: 50, 
-          height: 50, 
-          borderRadius: 25, 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          zIndex: 9999, 
-          elevation: 10, 
-          borderWidth: 2, 
-          borderColor: COLORS.primary
-        }}
+        style={{ position: 'absolute', right: 20, bottom: 250, backgroundColor: COLORS.card, width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 10 }}
         onPress={() => {
-          if (locationRef.current) {
-            mapRef.current?.animateCamera({ 
-              center: { 
-                latitude: locationRef.current.latitude, 
-                longitude: locationRef.current.longitude 
-              }, 
-              zoom: 15 
-            });
-          }
+          mapRef.current?.animateCamera({ center: { latitude: locationRef.current?.latitude, longitude: locationRef.current?.longitude }, zoom: 15 });
         }}
       >
         <Text style={{fontSize: 24}}>🎯</Text>

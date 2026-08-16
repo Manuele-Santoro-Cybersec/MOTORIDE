@@ -225,23 +225,23 @@ export default function HubScreen({ route, navigation }) {
   const today = new Date().getDay();
 
   const sortedDefaultHubs = [...defaultHubs].sort((a, b) => {
-    const aActive = a.days.includes(today);
-    const bActive = b.days.includes(today);
+    const aActive = (a.days || []).includes(today);
+    const bActive = (b.days || []).includes(today);
     if (aActive && !bActive) return -1;
     if (!aActive && bActive) return 1;
     return 0;
   });
 
   const sortedCustomHubs = [...customHubs].sort((a, b) => {
-    const aActive = a.days.includes(today);
-    const bActive = b.days.includes(today);
+    const aActive = (a.days || []).includes(today);
+    const bActive = (b.days || []).includes(today);
     if (aActive && !bActive) return -1;
     if (!aActive && bActive) return 1;
     return 0;
   });
 
   const renderHubCard = (hub, index) => {
-    const isActive = hub.days.includes(today);
+    const isActive = (hub.days || []).includes(today);
     const borderColor = isActive ? COLORS.danger : COLORS.secondary;
     const badgeText = isActive ? '🔥 TONIGHT' : 'LOCAL';
     const badgeColor = isActive ? COLORS.danger : (COLORS.warning || COLORS.primary);
@@ -414,14 +414,11 @@ export default function HubScreen({ route, navigation }) {
       
       {sortedDefaultHubs.map(renderHubCard)}
       
-      <Text style={{ fontSize: 20, color: COLORS.text, fontWeight: 'bold', marginTop: 20, marginBottom: 10 }}>My Personal Hubs</Text>
+      <Text style={{fontSize: 20, color: COLORS.text, fontWeight: 'bold', marginTop: 20, marginBottom: 10}}>My Personal Hubs</Text>
       
-      {sortedCustomHubs.filter(h => !h.isSavedRoute).length > 0 
-        ? sortedCustomHubs.filter(h => !h.isSavedRoute).map(renderHubCard)
-        : <Text style={{ color: COLORS.textMuted }}>No personal hubs created.</Text>
-      }
+      {sortedCustomHubs.filter(h => !h.isSavedRoute).map(renderHubCard)}
 
-      <Text style={{ fontSize: 20, color: COLORS.text, fontWeight: 'bold', marginTop: 20, marginBottom: 10 }}>My Planned Rides (To-Do)</Text>
+      <Text style={{fontSize: 20, color: COLORS.text, fontWeight: 'bold', marginTop: 20, marginBottom: 10}}>My Planned Rides</Text>
       
       {sortedCustomHubs.filter(h => h.isSavedRoute).map(renderHubCard)}
     </ScrollView>
