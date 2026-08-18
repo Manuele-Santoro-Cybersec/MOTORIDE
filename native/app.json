@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MotoRide",
-    "slug": "MotoRide",
+    "name": "Motoride",
+    "slug": "motoride",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

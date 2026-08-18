@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, ScrollView, Switch, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import * as DocumentPicker from 'expo-document-picker';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapLibreGL from '@maplibre/maplibre-react-native';
 import { getProfile, saveProfile, getRideDiary, saveRideDiary, getCustomHubs, saveCustomHubs } from '../utils/storage';
 import { getRoute } from '../utils/routing';
 import { COLORS, globalStyles } from '../constants/theme';
+
+MapLibreGL.setAccessToken(null);
 
 export default function RideScreen({ route, navigation }) {
   const [location, setLocation] = useState(null);
@@ -209,10 +211,9 @@ export default function RideScreen({ route, navigation }) {
       if (waypointsList.length > 0) {
         setPlannedStops(waypointsList);
         setTimeout(() => {
-          mapRef.current?.fitToCoordinates(waypointsList, {
-            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-            animated: true
-          });
+          const lats = waypointsList.map(c => c.latitude);
+          const lons = waypointsList.map(c => c.longitude);
+          mapRef.current?.fitBounds([Math.max(...lons), Math.max(...lats)], [Math.min(...lons), Math.min(...lats)], [50, 50, 50, 50], 1000);
         }, 500);
       }
     }
@@ -317,10 +318,9 @@ export default function RideScreen({ route, navigation }) {
       if (isSubscribed) {
         setRouteData(result);
         if (result && result.coordinates && result.coordinates.length > 0) {
-          mapRef.current?.fitToCoordinates(result.coordinates, {
-            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-            animated: true
-          });
+          const lats = result.coordinates.map(c => c.latitude);
+          const lons = result.coordinates.map(c => c.longitude);
+          mapRef.current?.fitBounds([Math.max(...lons), Math.max(...lats)], [Math.min(...lons), Math.min(...lats)], [50, 50, 50, 50], 1000);
         }
       }
     };
@@ -333,38 +333,62 @@ export default function RideScreen({ route, navigation }) {
   // Questa è la tab viva: la Mappa!
   return (
     <View style={globalStyles.container}>
-      <MapView 
-        ref={mapRef}
+      <MapLibreGL.MapView 
         style={styles.map} 
-        showsUserLocation={true}
-        initialRegion={location ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 } : { latitude: 51.4543, longitude: -0.9781, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
+        logoEnabled={false}
+        compassEnabled={true}
+        styleURL="https://demotiles.maplibre.org/style.json"
       >
+        <MapLibreGL.Camera 
+          ref={mapRef}
+          followUserLocation={true}
+          followUserMode={isRecording ? "course" : "normal"}
+          followZoomLevel={16}
+          followPitch={isRecording ? 50 : 0}
+        />
+        <MapLibreGL.UserLocation visible={true} />
+        
         {stops.map(stop => (
-          <Marker
+          <MapLibreGL.PointAnnotation
+            id={`stop-${stop.id}`}
             key={stop.id}
-            coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+            coordinate={[stop.longitude, stop.latitude]}
             title={stop.label || 'Stop'}
-            description={stop.timestamp}
-            pinColor={COLORS.primary}
-          />
+          >
+            <View style={{ width: 16, height: 16, backgroundColor: COLORS.primary, borderRadius: 8, borderColor: 'white', borderWidth: 2 }} />
+          </MapLibreGL.PointAnnotation>
         ))}
         {plannedStops.map(stop => (
-          <Marker
+          <MapLibreGL.PointAnnotation
+            id={`planned-${stop.id}`}
             key={stop.id}
-            coordinate={{ latitude: stop.latitude, longitude: stop.longitude }}
+            coordinate={[stop.longitude, stop.latitude]}
             title={stop.label || 'Planned Stop'}
-            pinColor={COLORS.secondary}
-          />
+          >
+            <View style={{ width: 16, height: 16, backgroundColor: COLORS.secondary, borderRadius: 8, borderColor: 'white', borderWidth: 2 }} />
+          </MapLibreGL.PointAnnotation>
         ))}
         {routeData && routeData.coordinates && routeData.coordinates.length > 0 && (
-          <Polyline 
-            coordinates={routeData.coordinates}
-            strokeColor={COLORS.success}
-            strokeWidth={4}
-            zIndex={1}
-          />
+          <MapLibreGL.ShapeSource 
+            id="routeSource" 
+            shape={{
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: routeData.coordinates.map(c => [c.longitude, c.latitude])
+              }
+            }}
+          >
+            <MapLibreGL.LineLayer 
+              id="routeLine" 
+              style={{
+                lineColor: COLORS.success,
+                lineWidth: 4
+              }} 
+            />
+          </MapLibreGL.ShapeSource>
         )}
-      </MapView>
+      </MapLibreGL.MapView>
       
       {!isRecording && (
         <View style={styles.planOverlay}>
@@ -523,7 +547,7 @@ export default function RideScreen({ route, navigation }) {
       <TouchableOpacity 
         style={{ position: 'absolute', right: 20, bottom: 250, backgroundColor: COLORS.card, width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 10 }}
         onPress={() => {
-          mapRef.current?.animateCamera({ center: { latitude: locationRef.current?.latitude, longitude: locationRef.current?.longitude }, zoom: 15 });
+          mapRef.current?.setCamera({ centerCoordinate: [locationRef.current?.longitude, locationRef.current?.latitude], zoomLevel: 15, animationDuration: 1000 });
         }}
       >
         <Text style={{fontSize: 24}}>🎯</Text>
