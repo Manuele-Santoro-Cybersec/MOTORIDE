@@ -7,8 +7,6 @@ import { getProfile, saveProfile, getRideDiary, saveRideDiary, getCustomHubs, sa
 import { getRoute } from '../utils/routing';
 import { COLORS, globalStyles } from '../constants/theme';
 
-MapLibreGL.setAccessToken(null);
-
 export default function RideScreen({ route, navigation }) {
   const [location, setLocation] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
