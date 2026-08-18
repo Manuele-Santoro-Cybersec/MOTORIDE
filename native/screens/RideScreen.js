@@ -333,20 +333,21 @@ export default function RideScreen({ route, navigation }) {
   // Questa è la tab viva: la Mappa!
   return (
     <View style={globalStyles.container}>
-      <MapLibreGL.MapView 
-        style={styles.map} 
-        logoEnabled={false}
-        compassEnabled={true}
-        styleURL="https://demotiles.maplibre.org/style.json"
-      >
-        <MapLibreGL.Camera 
-          ref={mapRef}
-          followUserLocation={true}
-          followUserMode={isRecording ? "course" : "normal"}
-          followZoomLevel={16}
-          followPitch={isRecording ? 50 : 0}
-        />
-        <MapLibreGL.UserLocation visible={true} />
+    <MapLibreGL.MapView
+    style={{ flex: 1 }}
+    styleURL="https://demotiles.maplibre.org/style.json"
+    logoEnabled={false}
+    compassEnabled={true}
+    >
+    <MapLibreGL.Camera
+    followUserLocation={true}
+    followUserMode={isRiding ? "course" : "normal"}
+    followZoomLevel={16}
+    followPitch={isRiding ? 50 : 0}
+    />
+    
+    <MapLibreGL.UserLocation visible={true} />
+    </MapLibreGL.MapView>
         
         {stops.map(stop => (
           <MapLibreGL.PointAnnotation
