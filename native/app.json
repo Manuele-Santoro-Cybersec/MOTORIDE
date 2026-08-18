@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.diabolele.motoride",
@@ -26,7 +26,20 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Motoride uses your location to track rides and plan routes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Motoride accesses your photos to attach images to your rides and customize your profile."
+        }
+      ],
+      "expo-document-picker"
     ],
     "extra": {
       "eas": {

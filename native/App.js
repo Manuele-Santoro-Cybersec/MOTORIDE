@@ -10,12 +10,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// --- SCHERMATE SEGNAPOSTO ---
-
-
-
-
-
 // --- CONFIGURAZIONE NAVIGAZIONE CON ICONE ---
 
 const Tab = createBottomTabNavigator();
@@ -59,32 +53,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-
-// --- STILI ---
-
-const styles = StyleSheet.create({
-  center: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    backgroundColor: '#121212'
-  },
-  title: { 
-    fontSize: 24, 
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#ffffff'
-  },
-  text: {
-    color: '#cccccc',
-    fontSize: 16
-  },
-  container: { 
-    flex: 1,
-    backgroundColor: '#121212'
-  },
-  map: { 
-    width: '100%', 
-    height: '100%' 
-  },
-});

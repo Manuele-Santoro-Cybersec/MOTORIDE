@@ -34,6 +34,7 @@ export default function RideScreen({ route, navigation }) {
   const lastCoord = useRef(null);
   const locationRef = useRef(null);
   const mapRef = useRef(null);
+  const cameraRef = useRef(null);
   const [routeData, setRouteData] = useState(null);
   const [avoidMotorways, setAvoidMotorways] = useState(false);
 
@@ -213,7 +214,10 @@ export default function RideScreen({ route, navigation }) {
         setTimeout(() => {
           const lats = waypointsList.map(c => c.latitude);
           const lons = waypointsList.map(c => c.longitude);
-          mapRef.current?.fitBounds([Math.max(...lons), Math.max(...lats)], [Math.min(...lons), Math.min(...lats)], [50, 50, 50, 50], 1000);
+          cameraRef.current?.fitBounds(
+            [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)],
+            { padding: { top: 50, right: 50, bottom: 50, left: 50 }, duration: 1000 }
+          );
         }, 500);
       }
     }
@@ -320,7 +324,10 @@ export default function RideScreen({ route, navigation }) {
         if (result && result.coordinates && result.coordinates.length > 0) {
           const lats = result.coordinates.map(c => c.latitude);
           const lons = result.coordinates.map(c => c.longitude);
-          mapRef.current?.fitBounds([Math.max(...lons), Math.max(...lats)], [Math.min(...lons), Math.min(...lats)], [50, 50, 50, 50], 1000);
+          cameraRef.current?.fitBounds(
+            [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)],
+            { padding: { top: 50, right: 50, bottom: 50, left: 50 }, duration: 1000 }
+          );
         }
       }
     };
@@ -334,13 +341,14 @@ export default function RideScreen({ route, navigation }) {
   return (
     <View style={globalStyles.container}>
       <MapLibreGL.MapView 
+        ref={mapRef}
         style={styles.map} 
         logoEnabled={false}
         compassEnabled={true}
         styleURL="https://demotiles.maplibre.org/style.json"
       >
         <MapLibreGL.Camera 
-          ref={mapRef}
+          ref={cameraRef}
           followUserLocation={true}
           followUserMode={isRecording ? "course" : "normal"}
           followZoomLevel={16}
@@ -547,7 +555,13 @@ export default function RideScreen({ route, navigation }) {
       <TouchableOpacity 
         style={{ position: 'absolute', right: 20, bottom: 250, backgroundColor: COLORS.card, width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 10 }}
         onPress={() => {
-          mapRef.current?.setCamera({ centerCoordinate: [locationRef.current?.longitude, locationRef.current?.latitude], zoomLevel: 15, animationDuration: 1000 });
+          if (locationRef.current) {
+            cameraRef.current?.flyTo({
+              center: [locationRef.current.longitude, locationRef.current.latitude],
+              zoom: 15,
+              duration: 1000
+            });
+          }
         }}
       >
         <Text style={{fontSize: 24}}>🎯</Text>
